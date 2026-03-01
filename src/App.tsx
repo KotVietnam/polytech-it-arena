@@ -1,0 +1,40 @@
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { GridCellsOverlay } from './components/GridCellsOverlay'
+import { ProtectedRoute } from './components/ProtectedRoute'
+import { AuthProvider } from './context/AuthContext'
+import { CalendarPage } from './pages/CalendarPage'
+import { HomePage } from './pages/HomePage'
+import { RegisterPage } from './pages/RegisterPage'
+import { CybersecurityPage } from './pages/tracks/CybersecurityPage'
+import { DevopsPage } from './pages/tracks/DevopsPage'
+import { NetworksPage } from './pages/tracks/NetworksPage'
+import { TrackInfoPage } from './pages/tracks/TrackInfoPage'
+import { TrackNewsPage } from './pages/tracks/TrackNewsPage'
+import { SysadminPage } from './pages/tracks/SysadminPage'
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <GridCellsOverlay />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<RegisterPage />} />
+          <Route path="/register" element={<Navigate to="/" replace />} />
+
+          <Route element={<ProtectedRoute />}>
+            <Route path="/home" element={<HomePage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/tracks/cybersecurity" element={<CybersecurityPage />} />
+            <Route path="/tracks/networks" element={<NetworksPage />} />
+            <Route path="/tracks/devops" element={<DevopsPage />} />
+            <Route path="/tracks/sysadmin" element={<SysadminPage />} />
+            <Route path="/tracks/:trackId/info" element={<TrackInfoPage />} />
+            <Route path="/tracks/:trackId/news" element={<TrackNewsPage />} />
+          </Route>
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  )
+}

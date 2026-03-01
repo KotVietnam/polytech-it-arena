@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TIMELINE // CYBER_STRIKE_2026</title>
+    <style>
+        :root {
+            --red: #ff0000;
+            --dark: #050505;
+            --gray: #1a1a1a;
+            --text-dim: #666;
+            --font-mono: 'Courier New', monospace;
+            --font-heavy: 'Arial Black', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: var(--dark);
+            color: #fff;
+            font-family: var(--font-heavy);
+            background-image: 
+                linear-gradient(rgba(255, 0, 0, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 0, 0, 0.05) 1px, transparent 1px);
+            background-size: 100px 100px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            border-left: 4px solid var(--red);
+            border-right: 4px solid var(--red);
+            min-height: 100vh;
+            background: rgba(0,0,0,0.8);
+        }
+
+        /* Шапка страницы */
+        header {
+            padding: 60px 40px;
+            border-bottom: 4px solid var(--red);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .title-group h1 {
+            font-size: 7vw;
+            line-height: 0.8;
+            letter-spacing: -4px;
+        }
+
+        .status-badge {
+            font-family: var(--font-mono);
+            border: 2px solid var(--red);
+            padding: 10px 20px;
+            color: var(--red);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; box-shadow: 0 0 0px var(--red); }
+            50% { opacity: 0.5; box-shadow: 0 0 20px var(--red); }
+            100% { opacity: 1; box-shadow: 0 0 0px var(--red); }
+        }
+
+        /* Сетка расписания */
+        .timeline {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .time-row {
+            display: grid;
+            grid-template-columns: 200px 1fr 250px;
+            border-bottom: 1px solid var(--gray);
+            transition: 0.3s;
+            cursor: crosshair;
+        }
+
+        .time-row:hover {
+            background: rgba(255, 0, 0, 0.1);
+            border-bottom: 1px solid var(--red);
+        }
+
+        .time-cell, .event-cell, .status-cell {
+            padding: 30px;
+            display: flex;
+            align-items: center;
+        }
+
+        .time-cell {
+            font-family: var(--font-mono);
+            font-size: 1.5rem;
+            color: var(--red);
+            border-right: 1px solid var(--gray);
+        }
+
+        .event-cell h3 {
+            font-size: 1.8rem;
+            text-transform: uppercase;
+        }
+
+        .event-cell p {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-top: 5px;
+        }
+
+        .status-cell {
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            text-align: right;
+            justify-content: flex-end;
+            border-left: 1px solid var(--gray);
+        }
+
+        /* Специальный стиль для текущего события */
+        .current {
+            background: var(--red) !important;
+            color: #000 !important;
+        }
+
+        .current .time-cell, .current .event-cell p, .current .status-cell {
+            color: #000 !important;
+            border-color: rgba(0,0,0,0.2) !important;
+        }
+
+        /* Футер-терминал */
+        .terminal-nav {
+            background: #000;
+            padding: 20px 40px;
+            border-top: 4px solid var(--red);
+            font-family: var(--font-mono);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .term-cmd { color: var(--red); text-decoration: none; }
+        .term-cmd:hover { color: #fff; }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div class="title-group">
+            <div style="font-family: var(--font-mono); color: var(--red); margin-bottom: 10px;">>> FILE: SCHEDULE_v1.log</div>
+            <h1>EVENT<br>TIMELINE</h1>
+        </div>
+        <div class="status-badge">SYSTEM: ONLINE</div>
+    </header>
+
+    <div class="timeline">
+        <div class="time-row">
+            <div class="time-cell">09:00</div>
+            <div class="event-cell">
+                <div>
+                    <h3>System Check-in</h3>
+                    <p>Регистрация участников, получение доступов к VPN и выдача мерча.</p>
+                </div>
+            </div>
+            <div class="status-cell">[ COMPLETED ]</div>
+        </div>
+
+        <div class="time-row">
+            <div class="time-cell">10:30</div>
+            <div class="event-cell">
+                <div>
+                    <h3>Mainframe Init</h3>
+                    <p>Официальное открытие, брифинг по правилам и тех. регламенту.</p>
+                </div>
+            </div>
+            <div class="status-cell">[ SUCCESS ]</div>
+        </div>
+
+        <div class="time-row current">
+            <div class="time-cell">12:00</div>
+            <div class="event-cell">
+                <div>
+                    <h3>Phase 01: The Breach</h3>
+                    <p>Начало соревнований по всем направлениям. Первый этап взлома.</p>
+                </div>
+            </div>
+            <div class="status-cell">>> EXECUTING...</div>
+        </div>
+
+        <div class="time-row">
+            <div class="time-cell">14:00</div>
+            <div class="event-cell">
+                <div>
+                    <h3>Resource Recharge</h3>
+                    <p>Перерыв на обед. Нетворкинг в лаунж-зоне.</p>
+                </div>
+            </div>
+            <div class="status-cell">[ PENDING ]</div>
+        </div>
+
+        <div class="time-row">
+            <div class="time-cell">15:00</div>
+            <div class="event-cell">
+                <div>
+                    <h3>Phase 02: Infrastructure</h3>
+                    <p>Фокус на Networks и DevOps. Развертывание и защита под нагрузкой.</p>
+                </div>
+            </div>
+            <div class="status-cell">[ LOCKED ]</div>
+        </div>
+
+        <div class="time-row">
+            <div class="time-cell">19:00</div>
+            <div class="event-cell">
+                <div>
+                    <h3>Root Access Granted</h3>
+                    <p>Финал, подведение итогов, награждение победителей и Afterparty.</p>
+                </div>
+            </div>
+            <div class="status-cell">[ LOCKED ]</div>
+        </div>
+    </div>
+
+    <div class="terminal-nav">
+        <div>
+            <a href="index.html" class="term-cmd">./home</a>
+            <a href="cybersecurity.html" class="term-cmd" style="margin-left: 20px;">./competencies</a>
+        </div>
+        <div style="color: #444;">USER: ADMIN_GUEST // IP: 127.0.0.1</div>
+    </div>
+</div>
+
+<script>
+    // Простой скрипт для эффекта "печатания" статуса в консоли браузера
+    console.log("%c SYSTEM SCHEDULE LOADED ", "background: red; color: black; font-weight: bold;");
+    
+    // При клике на строку — выводим детали в стиле логов
+    const rows = document.querySelectorAll('.time-row');
+    rows.forEach(row => {
+        row.addEventListener('click', () => {
+            const title = row.querySelector('h3').innerText;
+            alert(`ACCESSING DATA FOR: ${title}... \nСтатус: ${row.querySelector('.status-cell').innerText}`);
+        });
+    });
+</script>
+
+</body>
+</html>
