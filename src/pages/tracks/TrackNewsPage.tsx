@@ -46,16 +46,17 @@ export const TrackNewsPage = () => {
             </Link>
           </div>
 
-          <button
-            type="button"
+          <Link
+            to="/profile"
             className="bm-user-chip bm-user-chip-button mono"
-            aria-label="Profile soon"
+            aria-label="Open profile"
+            title="Open profile"
           >
             <div className="bm-avatar" aria-hidden="true">
               {avatarLetter}
             </div>
             <div className="bm-user-text">USER: {user?.username ?? 'UNKNOWN'}</div>
-          </button>
+          </Link>
         </header>
 
         <section className="bm-track-section bm-track-section-last">

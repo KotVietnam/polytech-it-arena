@@ -4,6 +4,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { AuthProvider } from './context/AuthContext'
 import { CalendarPage } from './pages/CalendarPage'
 import { HomePage } from './pages/HomePage'
+import { ProfilePage } from './pages/ProfilePage'
 import { RegisterPage } from './pages/RegisterPage'
 import { CybersecurityPage } from './pages/tracks/CybersecurityPage'
 import { DevopsPage } from './pages/tracks/DevopsPage'
@@ -24,6 +25,7 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/home" element={<HomePage />} />
             <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/tracks/cybersecurity" element={<CybersecurityPage />} />
             <Route path="/tracks/networks" element={<NetworksPage />} />
             <Route path="/tracks/devops" element={<DevopsPage />} />

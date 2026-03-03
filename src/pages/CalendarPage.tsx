@@ -125,8 +125,8 @@ export const CalendarPage = () => {
             {homeLinkText}
           </Link>
 
-          <button
-            type="button"
+          <Link
+            to="/profile"
             className="bm-user-chip bm-user-chip-button mono"
             aria-label={profileSoonLabel}
             title={profileSoonLabel}
@@ -135,7 +135,7 @@ export const CalendarPage = () => {
               {avatarLetter}
             </div>
             <div className="bm-user-text">USER: {user?.username ?? 'UNKNOWN'}</div>
-          </button>
+          </Link>
         </header>
 
         <section className="bm-tl-timeline" aria-label="Timeline">
