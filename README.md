@@ -1,124 +1,170 @@
-﻿# PolyTech IT Arena
+# PolyTech IT Arena
 
-Фронтенд-проект клуба соревнований `Blue Team vs Red Team` для колледжа.
-Сайт выполнен в стиле cyber-terminal: вход через терминал, далее доступ к страницам треков и календарю событий.
+Монорепозиторий клуба соревнований `Blue Team vs Red Team`.
+Состоит из:
+- frontend (`React + Vite + TypeScript`)
+- backend API (`Node.js + Express + Prisma + SQLite + AD auth`)
 
-## Технологии
+## Что реализовано
 
-- Vite
-- React 19 + TypeScript
-- Tailwind CSS
-- React Router v6
-- Без backend (данные статические, готовы к дальнейшей интеграции API)
+- Терминальная авторизация на `/` с командами `help/login/auth`
+- Авторизация через backend:
+  - `AUTH_MODE=ad` — проверка логина/пароля через Active Directory (LDAP)
+  - `AUTH_MODE=mock` — локальный режим разработки
+- JWT-сессия на клиенте
+- Защищенные маршруты через роли (`USER` / `ADMIN`)
+- Соревнования загружаются из БД (вместо заглушек)
+- Архив соревнований загружается из БД
+- Встроенная admin-панель `/admin`:
+  - создание/удаление соревнований
+  - создание/удаление архивных записей
+  - управление ролями пользователей
 
-## Основные возможности
+## Структура
 
-- Терминальная авторизация на главной странице (`/`)
-- Вход по командам `login` + `auth`
-- Главная страница клуба с карточками компетенций
-- Календарь событий с таймлайном
-- Отдельные страницы треков:
-  - CyberSecurity
-  - Networks
-  - DevOps
-  - SysAdmin
-- Страницы по трекам:
-  - полезная информация
-  - новости
-- Сетка-фон и тематические анимации в общем стиле проекта
+```text
+.
+├── src/                 # frontend
+└── server/
+    ├── src/             # backend API
+    └── prisma/          # схема и seed
+```
 
 ## Быстрый старт
 
 Требования:
-
 - Node.js 20+
 - npm 10+
 
-Установка и запуск:
+### 1. Frontend
 
 ```bash
 npm install
 npm run dev
 ```
 
-После запуска откройте:
+Frontend по умолчанию: `http://localhost:5173`
 
-```text
-http://localhost:5173
-```
-
-## Доступные команды npm
+### 2. Backend
 
 ```bash
-npm run dev      # dev-сервер
-npm run build    # production build
-npm run preview  # локальный просмотр production build
-npm run lint     # проверка линтером
+npm --prefix server install
+cp server/.env.example server/.env
 ```
 
-## Маршруты
+Заполните `server/.env`:
+- `DATABASE_URL` (по умолчанию `file:./dev.db`)
+- `JWT_SECRET`
+- режим `AUTH_MODE` (`ad` или `mock`)
+- при `AUTH_MODE=ad`: `AD_URL`, `AD_BASE_DN`, `AD_BIND_*`, `AD_ADMIN_GROUP_DN`
+
+Далее:
+
+```bash
+npm run server:migrate
+npm run server:dev
+```
+
+Backend по умолчанию (локально): `http://127.0.0.1:4000`
+
+## NPM команды
+
+Frontend:
+
+```bash
+npm run dev
+npm run build
+npm run preview
+npm run lint
+```
+
+Backend:
+
+```bash
+npm run server:dev
+npm run server:build
+npm run server:migrate
+npm run server:seed
+```
+
+`server:migrate` выполняет:
+- инициализацию SQLite схемы (`server/prisma/init.sql`)
+- seed данных соревнований (`server/prisma/seed.ts`)
+
+## API (основное)
+
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `GET /api/events`
+- `GET /api/archives`
+- `POST /api/admin/events` (ADMIN)
+- `PATCH /api/admin/events/:id` (ADMIN)
+- `DELETE /api/admin/events/:id` (ADMIN)
+- `POST /api/admin/archives` (ADMIN)
+- `PATCH /api/admin/archives/:id` (ADMIN)
+- `DELETE /api/admin/archives/:id` (ADMIN)
+- `GET /api/admin/users` (ADMIN)
+- `PATCH /api/admin/users/:id/role` (ADMIN)
+
+## Маршруты frontend
 
 - `/` — терминал авторизации
-- `/home` — главная страница
-- `/calendar` — календарь событий
+- `/home` — главная
+- `/calendar` — календарь соревнований
+- `/archive` — архив
+- `/admin` — панель администратора
 - `/tracks/cybersecurity`
 - `/tracks/networks`
 - `/tracks/devops`
 - `/tracks/sysadmin`
-- `/tracks/:trackId/info` — полезная информация по треку
-- `/tracks/:trackId/news` — новости трека
+- `/tracks/:trackId/info`
+- `/tracks/:trackId/news`
 
-## Команды в терминале авторизации
+## Примечания по AD
 
-- `help` — список команд
-- `login` — запуск экрана ввода логина/пароля
-- `auth` — вход на сайт после `login`
-- `status` — состояние полей авторизации
-- `clear` — очистка терминала
+- Роль `ADMIN` автоматически назначается, если пользователь входит в группу `AD_ADMIN_GROUP_DN`.
+- Дополнительно роль можно менять через `/admin`.
+- Для локальной разработки без AD используйте `AUTH_MODE=mock`.
 
-Пасхалки:
+## База данных
 
-- `matrix`
-- `coffee`
-- `xyzzy`
-- `sudo rm -rf /`
+- Локально проект запускается на SQLite (`server/prisma/dev.db`) без внешних сервисов.
+- Если нужен PostgreSQL в production, можно переключить datasource в [server/prisma/schema.prisma](/root/polytech-it-arena/server/prisma/schema.prisma) и обновить `DATABASE_URL`.
 
-## Структура проекта
+## Nginx + Build Deploy
 
-```text
-src/
-  components/
-  context/
-  data/
-  pages/
-    tracks/
-  types/
-  utils/
-  App.tsx
-  main.tsx
-  index.css
-```
+Серверная схема:
+- `nginx` отдает frontend build из `/var/www/polytech-it-arena`
+- `nginx` проксирует `/api` на `127.0.0.1:4000`
+- backend работает как `systemd`-сервис `polytech-it-arena-api`
+- frontend обращается к API по относительному пути `/api` (без `:4000` в браузере)
+- домен: `itarena.kotvietnam.kz`
 
-## Сборка и деплой
+Конфиги в репозитории:
+- [ops/nginx/polytech-it-arena.conf](/root/polytech-it-arena/ops/nginx/polytech-it-arena.conf)
+- [ops/systemd/polytech-it-arena-api.service](/root/polytech-it-arena/ops/systemd/polytech-it-arena-api.service)
 
-Сборка:
+Команды применения:
 
 ```bash
+# build
 npm run build
+npm --prefix server run build
+npm run server:migrate
+
+# deploy frontend static
+sudo mkdir -p /var/www/polytech-it-arena
+sudo cp -a dist/. /var/www/polytech-it-arena/
+
+# install backend service
+sudo cp ops/systemd/polytech-it-arena-api.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now polytech-it-arena-api
+
+# install nginx site
+sudo cp ops/nginx/polytech-it-arena.conf /etc/nginx/sites-available/polytech-it-arena
+sudo ln -sfn /etc/nginx/sites-available/polytech-it-arena /etc/nginx/sites-enabled/polytech-it-arena
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl reload nginx
 ```
-
-Артефакты будут в папке `dist/`.
-
-Пример `nginx` для SPA:
-
-```nginx
-location / {
-  root /var/www/polytech-it-arena;
-  try_files $uri $uri/ /index.html;
-}
-```
-
-## Примечание
-
-Сессия авторизации хранится в `sessionStorage`.
-Если нужно принудительно выйти, закройте вкладку/браузер или очистите данные сайта.

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { events } from '../data/events'
 import { trackNames } from '../data/tracks'
+import { useEvents } from '../hooks/useEvents'
 import { sortEventsByDate } from '../utils/date'
 
 type TimelineStatus = 'completed' | 'executing' | 'pending' | 'locked'
@@ -50,15 +50,16 @@ const toTimeLabel = (isoDate: string) =>
 
 export const CalendarPage = () => {
   const { user } = useAuth()
+  const { events } = useEvents()
   const [subtitleIndex, setSubtitleIndex] = useState(0)
   const [phase, setPhase] = useState<'typing' | 'hold' | 'deleting'>('typing')
   const [charCount, setCharCount] = useState(0)
+  const [referenceTime] = useState(() => Date.now())
 
   const timelineItems = useMemo<TimelineItem[]>(() => {
     const sorted = sortEventsByDate(events)
-    const nowTime = Date.now()
     const nearestUpcomingIndex = sorted.findIndex(
-      (eventItem) => new Date(eventItem.date).getTime() >= nowTime,
+      (eventItem) => new Date(eventItem.date).getTime() >= referenceTime,
     )
 
     const executingIndex = nearestUpcomingIndex >= 0 ? nearestUpcomingIndex : 0
@@ -81,7 +82,7 @@ export const CalendarPage = () => {
         status,
       }
     })
-  }, [])
+  }, [events, referenceTime])
 
   const activeSubtitle = titleLine2Rotation[subtitleIndex]
 

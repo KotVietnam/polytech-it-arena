@@ -1,8 +1,9 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { events } from '../data/events'
 import { trackNames } from '../data/tracks'
+import { useEvents } from '../hooks/useEvents'
 import { formatDateTime, getNearestEvent, sortEventsByDate } from '../utils/date'
 
 const cards = [
@@ -62,6 +63,8 @@ const fallbackEventDate =
 
 const scheduleLinkText =
   'УЗНАТЬ РАСПИСАНИЕ >>'
+const archiveLinkText = 'АРХИВ ИВЕНТОВ >>'
+const adminLinkText = 'ADMIN PANEL >>'
 
 const telegramLabel = 'ТЕЛЕГРАМ'
 const telegramValue = '@POLYETCH_IT_ARENA'
@@ -76,6 +79,7 @@ const profileSoonLabel =
 
 export const HomePage = () => {
   const { user } = useAuth()
+  const { events } = useEvents()
   const nearestEvent = getNearestEvent(sortEventsByDate(events))
 
   const [headlineIndex, setHeadlineIndex] = useState(0)
@@ -207,6 +211,17 @@ export const HomePage = () => {
           <Link to="/calendar" className="bm-header-schedule mono">
             {scheduleLinkText}
           </Link>
+
+          <div className="absolute bottom-10 left-10 flex flex-wrap gap-3">
+            <Link to="/archive" className="bm-header-schedule mono" style={{ position: 'static' }}>
+              {archiveLinkText}
+            </Link>
+            {user?.role === 'ADMIN' ? (
+              <Link to="/admin" className="bm-header-schedule mono" style={{ position: 'static' }}>
+                {adminLinkText}
+              </Link>
+            ) : null}
+          </div>
 
           <Link
             to="/profile"

@@ -28,7 +28,7 @@ const randomMatrixRow = () =>
 
 export const RegisterPage = () => {
   const navigate = useNavigate()
-  const { authorize } = useAuth()
+  const { authorize, isAuthLoading } = useAuth()
   const [lines, setLines] = useState<TerminalLine[]>(initialLines)
   const [lineId, setLineId] = useState(initialLines.length + 1)
   const [inputValue, setInputValue] = useState('')
@@ -89,7 +89,7 @@ export const RegisterPage = () => {
     }
   }
 
-  const runCommand = (rawValue: string) => {
+  const runCommand = async (rawValue: string) => {
     const value = rawValue.trim()
     const normalized = value.toLowerCase()
     if (!value) {
@@ -140,10 +140,20 @@ export const RegisterPage = () => {
         )
         return
       }
-      authorize(loginCandidate)
-      pushLine(
-        "<span style='color:#00ff41;'>ACCESS GRANTED.</span> Авторизация успешна. Загрузка панели соревнований...",
-      )
+      if (isAuthLoading) {
+        pushLine('AUTH IN PROGRESS...')
+        return
+      }
+
+      const result = await authorize(loginCandidate, passCandidate)
+      if (!result.ok) {
+        pushLine(
+          `<span style='color:#ff3131;'>AUTH FAILED:</span> ${result.error}.`,
+        )
+        return
+      }
+
+      pushLine("<span style='color:#00ff41;'>ACCESS GRANTED.</span> Авторизация успешна. Загрузка панели соревнований...")
       setTimeout(() => {
         navigate('/home', { replace: true })
       }, 550)
@@ -185,7 +195,7 @@ export const RegisterPage = () => {
 
   const onInputEnter = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
-      runCommand(inputValue)
+      void runCommand(inputValue)
       setInputValue('')
     }
   }

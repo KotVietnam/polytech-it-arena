@@ -1,9 +1,9 @@
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { events } from '../../data/events'
 import { trackNames, tracksById } from '../../data/tracks'
+import { useEvents } from '../../hooks/useEvents'
 import type { TrackId } from '../../types'
-import { formatDateTime, sortEventsByDate } from '../../utils/date'
+import { formatDateTime } from '../../utils/date'
 
 const newsTitle = 'НОВОСТИ ТРЕКА'
 const emptyNewsText =
@@ -16,6 +16,8 @@ export const TrackNewsPage = () => {
   const { user } = useAuth()
   const { trackId } = useParams<{ trackId: string }>()
   const rawTrackId = trackId ?? ''
+  const validTrack = isTrackId(rawTrackId) ? rawTrackId : undefined
+  const { events } = useEvents(validTrack ? { track: validTrack } : undefined)
 
   if (!isTrackId(rawTrackId)) {
     return <Navigate to="/home" replace />
@@ -24,9 +26,9 @@ export const TrackNewsPage = () => {
   const track = tracksById[rawTrackId]
   const avatarLetter = user?.username?.trim().charAt(0).toUpperCase() || '?'
 
-  const trackEvents = sortEventsByDate(events)
-    .filter((eventItem) => eventItem.track === rawTrackId)
-    .reverse()
+  const trackEvents = [...events].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+  )
 
   return (
     <div className="bm-track-page">

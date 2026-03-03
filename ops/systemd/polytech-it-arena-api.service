@@ -1,0 +1,16 @@
+[Unit]
+Description=PolyTech IT Arena API
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/polytech-it-arena/server
+EnvironmentFile=/root/polytech-it-arena/server/.env
+ExecStart=/usr/bin/node /root/polytech-it-arena/server/dist/index.js
+Restart=always
+RestartSec=5
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

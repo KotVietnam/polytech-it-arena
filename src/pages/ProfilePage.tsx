@@ -23,30 +23,7 @@ export const ProfilePage = () => {
   const [subtitleIndex, setSubtitleIndex] = useState(0)
   const [phase, setPhase] = useState<'typing' | 'hold' | 'deleting'>('typing')
   const [charCount, setCharCount] = useState(0)
-
-  if (!user) {
-    return null
-  }
-
   const activeSubtitle = subtitleRotation[subtitleIndex]
-
-  const avatarLetter = user.username.trim().charAt(0).toUpperCase() || '?'
-  const lastRegistration = user.registrations[0] ?? null
-  const nearestEvent = getNearestEvent(sortEventsByDate(events))
-
-  const averagePoints = user.registrations.length
-    ? Math.round(user.totalPoints / user.registrations.length)
-    : 0
-
-  const trackStats = trackOrder.map((trackId) => {
-    const entries = user.registrations.filter((item) => item.trackId === trackId)
-    return {
-      trackId,
-      name: trackNames[trackId],
-      count: entries.length,
-      latestEntry: entries[0] ?? null,
-    }
-  })
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
@@ -70,6 +47,28 @@ export const ProfilePage = () => {
 
     return () => clearTimeout(timer)
   }, [activeSubtitle.length, charCount, phase])
+
+  if (!user) {
+    return null
+  }
+
+  const avatarLetter = user.username.trim().charAt(0).toUpperCase() || '?'
+  const lastRegistration = user.registrations[0] ?? null
+  const nearestEvent = getNearestEvent(sortEventsByDate(events))
+
+  const averagePoints = user.registrations.length
+    ? Math.round(user.totalPoints / user.registrations.length)
+    : 0
+
+  const trackStats = trackOrder.map((trackId) => {
+    const entries = user.registrations.filter((item) => item.trackId === trackId)
+    return {
+      trackId,
+      name: trackNames[trackId],
+      count: entries.length,
+      latestEntry: entries[0] ?? null,
+    }
+  })
 
   return (
     <div className="bm-profile-page">

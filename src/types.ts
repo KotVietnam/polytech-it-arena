@@ -11,6 +11,29 @@ export interface EventItem {
   duration: string
   location: string
   description: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export type UserRole = 'USER' | 'ADMIN'
+
+export interface AuthUser {
+  id: string
+  username: string
+  displayName: string | null
+  email: string | null
+  role: UserRole
+}
+
+export interface ArchiveItem {
+  id: string
+  eventId: string
+  summary: string
+  materials: string[]
+  publishedAt: string
+  createdAt: string
+  updatedAt: string
+  event: EventItem
 }
 
 export interface TrackLevelConfig {

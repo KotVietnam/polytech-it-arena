@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { useState } from 'react'
+import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import type { Theme } from '../hooks/useTheme'
 import { cn } from '../utils/cn'
@@ -30,11 +30,7 @@ const navClassName = ({ isActive }: { isActive: boolean }) =>
 export const Header = ({ theme, onToggleTheme }: HeaderProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const { user, logout } = useAuth()
-  const location = useLocation()
-
-  useEffect(() => {
-    setIsMobileMenuOpen(false)
-  }, [location.pathname])
+  const closeMobileMenu = () => setIsMobileMenuOpen(false)
 
   return (
     <header className="border-b border-red-700/90 bg-black motion-safe:animate-reveal-up">
@@ -102,13 +98,21 @@ export const Header = ({ theme, onToggleTheme }: HeaderProps) => {
             </p>
           ) : null}
           {navItems.map((item) => (
-            <NavLink key={item.to} to={item.to} className={navClassName}>
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={navClassName}
+              onClick={closeMobileMenu}
+            >
               {item.label}
             </NavLink>
           ))}
           <button
             type="button"
-            onClick={logout}
+            onClick={() => {
+              closeMobileMenu()
+              logout()
+            }}
             className="mono border border-zinc-700 px-3 py-2 text-left text-xs text-zinc-200 hover:border-red-600 hover:text-red-300"
           >
             LOGOUT

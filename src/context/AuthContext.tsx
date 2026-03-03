@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import {
   createContext,
   useContext,
@@ -6,7 +7,8 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import type { Level, TrackId } from '../types'
+import { apiGetMe, apiLogin } from '../api/client'
+import type { AuthUser, Level, TrackId } from '../types'
 
 interface RegistrationEntry {
   id: string
@@ -16,8 +18,7 @@ interface RegistrationEntry {
   date: string
 }
 
-interface UserProfile {
-  username: string
+interface UserProfile extends AuthUser {
   totalPoints: number
   registrations: RegistrationEntry[]
 }
@@ -25,9 +26,16 @@ interface UserProfile {
 interface AuthContextValue {
   isAuthorized: boolean
   user: UserProfile | null
-  authorize: (username: string) => void
+  token: string | null
+  isAuthLoading: boolean
+  authorize: (username: string, password: string) => Promise<{ ok: true } | { ok: false; error: string }>
   logout: () => void
   registerTrack: (trackId: TrackId, level: Level) => void
+}
+
+interface SessionPayload {
+  token: string
+  user: UserProfile
 }
 
 const SESSION_KEY = 'cyberclub-auth-session'
@@ -40,18 +48,38 @@ const levelPoints: Record<Level, number> = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
-const parseSession = (raw: string | null): UserProfile | null => {
+const isValidRegistration = (value: unknown): value is RegistrationEntry => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Record<string, unknown>
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.trackId === 'string' &&
+    typeof candidate.level === 'string' &&
+    typeof candidate.points === 'number' &&
+    typeof candidate.date === 'string'
+  )
+}
+
+const parseSession = (raw: string | null): SessionPayload | null => {
   if (!raw) {
     return null
   }
 
   try {
-    const parsed = JSON.parse(raw) as UserProfile
+    const parsed = JSON.parse(raw) as SessionPayload
     if (
       parsed &&
-      typeof parsed.username === 'string' &&
-      typeof parsed.totalPoints === 'number' &&
-      Array.isArray(parsed.registrations)
+      typeof parsed.token === 'string' &&
+      parsed.user &&
+      typeof parsed.user.id === 'string' &&
+      typeof parsed.user.username === 'string' &&
+      typeof parsed.user.role === 'string' &&
+      typeof parsed.user.totalPoints === 'number' &&
+      Array.isArray(parsed.user.registrations) &&
+      parsed.user.registrations.every(isValidRegistration)
     ) {
       return parsed
     }
@@ -62,42 +90,101 @@ const parseSession = (raw: string | null): UserProfile | null => {
   return null
 }
 
+const mergeWithProgress = (serverUser: AuthUser, previous: UserProfile | null): UserProfile => {
+  if (!previous || previous.username !== serverUser.username) {
+    return {
+      ...serverUser,
+      totalPoints: 0,
+      registrations: [],
+    }
+  }
+
+  return {
+    ...serverUser,
+    totalPoints: previous.totalPoints,
+    registrations: previous.registrations,
+  }
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<UserProfile | null>(() =>
+  const [state, setState] = useState<SessionPayload | null>(() =>
     parseSession(sessionStorage.getItem(SESSION_KEY)),
   )
+  const [isAuthLoading, setIsAuthLoading] = useState(false)
 
   useEffect(() => {
-    if (user) {
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(user))
+    if (state) {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(state))
     } else {
       sessionStorage.removeItem(SESSION_KEY)
     }
-  }, [user])
+  }, [state])
 
-  const authorize = (username: string) => {
-    const normalized = username.trim()
-    if (!normalized) {
+  useEffect(() => {
+    const token = state?.token
+    if (!token) {
       return
     }
-    setUser((previous) => {
-      if (previous && previous.username === normalized) {
-        return previous
+
+    let cancelled = false
+
+    const run = async () => {
+      try {
+        const response = await apiGetMe(token)
+        if (!cancelled) {
+          setState((previous) => {
+            if (!previous) {
+              return previous
+            }
+
+            return {
+              token: previous.token,
+              user: mergeWithProgress(response.user, previous.user),
+            }
+          })
+        }
+      } catch {
+        if (!cancelled) {
+          setState(null)
+        }
       }
-      return {
-        username: normalized,
-        totalPoints: 0,
-        registrations: [],
-      }
-    })
+    }
+
+    void run()
+
+    return () => {
+      cancelled = true
+    }
+  }, [state?.token])
+
+  const authorize: AuthContextValue['authorize'] = async (username, password) => {
+    const normalized = username.trim()
+    if (!normalized || !password.trim()) {
+      return { ok: false, error: 'Введите логин и пароль.' }
+    }
+
+    setIsAuthLoading(true)
+    try {
+      const response = await apiLogin(normalized, password)
+      setState((previous) => ({
+        token: response.token,
+        user: mergeWithProgress(response.user, previous?.user ?? null),
+      }))
+      return { ok: true }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Ошибка авторизации'
+      return { ok: false, error: message }
+    } finally {
+      setIsAuthLoading(false)
+    }
   }
 
   const logout = () => {
-    setUser(null)
+    setState(null)
   }
 
   const registerTrack = (trackId: TrackId, level: Level) => {
-    setUser((previous) => {
+    setState((previous) => {
       if (!previous) {
         return previous
       }
@@ -113,21 +200,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       return {
         ...previous,
-        totalPoints: previous.totalPoints + points,
-        registrations: [newEntry, ...previous.registrations].slice(0, 30),
+        user: {
+          ...previous.user,
+          totalPoints: previous.user.totalPoints + points,
+          registrations: [newEntry, ...previous.user.registrations].slice(0, 30),
+        },
       }
     })
   }
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      isAuthorized: Boolean(user),
-      user,
+      isAuthorized: Boolean(state?.token && state.user),
+      user: state?.user ?? null,
+      token: state?.token ?? null,
+      isAuthLoading,
       authorize,
       logout,
       registerTrack,
     }),
-    [user],
+    [state, isAuthLoading],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

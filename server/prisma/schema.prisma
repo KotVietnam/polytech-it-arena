@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum TrackId {
+  cybersecurity
+  networks
+  devops
+  sysadmin
+}
+
+enum Level {
+  Junior
+  Middle
+  Senior
+}
+
+model User {
+  id              String         @id @default(uuid())
+  username        String         @unique
+  displayName     String?
+  email           String?
+  role            Role           @default(USER)
+  lastLoginAt     DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  createdEvents   Event[]        @relation("EventCreatedBy")
+  createdArchives ArchiveEntry[] @relation("ArchiveCreatedBy")
+}
+
+model Event {
+  id           String        @id @default(uuid())
+  track        TrackId
+  level        Level
+  title        String
+  duration     String
+  location     String
+  description  String
+  startsAt     DateTime
+  createdById  String?
+  createdBy    User?         @relation("EventCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  archiveEntry ArchiveEntry?
+
+  @@index([startsAt])
+  @@index([track, level])
+}
+
+model ArchiveEntry {
+  id          String   @id @default(uuid())
+  eventId     String   @unique
+  summary     String
+  materials   String
+  publishedAt DateTime
+  createdById String?
+  createdBy   User?    @relation("ArchiveCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([publishedAt])
+}

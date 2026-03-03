@@ -1,13 +1,17 @@
 {
   "name": "cyberbiz",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server:dev": "npm --prefix server run dev",
+    "server:build": "npm --prefix server run build",
+    "server:migrate": "npm --prefix server run db:setup",
+    "server:seed": "npm --prefix server run prisma:seed"
   },
   "dependencies": {
     "react": "^19.2.0",
