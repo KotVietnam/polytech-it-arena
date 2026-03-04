@@ -8,6 +8,7 @@ import { ArchivePage } from './pages/ArchivePage'
 import { CalendarPage } from './pages/CalendarPage'
 import { HomePage } from './pages/HomePage'
 import { ProfilePage } from './pages/ProfilePage'
+import { RegisterPage } from './pages/RegisterPage'
 import { CybersecurityPage } from './pages/tracks/CybersecurityPage'
 import { DevopsPage } from './pages/tracks/DevopsPage'
 import { NetworksPage } from './pages/tracks/NetworksPage'
@@ -21,8 +22,8 @@ export default function App() {
       <GridCellsOverlay />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Navigate to="/home" replace />} />
-          <Route path="/register" element={<Navigate to="/home" replace />} />
+          <Route path="/" element={<Navigate to="/register" replace />} />
+          <Route path="/register" element={<RegisterPage />} />
 
           <Route element={<ProtectedRoute />}>
             <Route path="/home" element={<HomePage />} />
@@ -41,7 +42,7 @@ export default function App() {
             </Route>
           </Route>
 
-          <Route path="*" element={<Navigate to="/home" replace />} />
+          <Route path="*" element={<Navigate to="/register" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

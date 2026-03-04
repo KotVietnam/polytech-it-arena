@@ -10,6 +10,7 @@ export const createEventSchema = z.object({
   duration: z.string().min(1).max(60),
   location: z.string().min(1).max(120),
   description: z.string().min(5).max(2000),
+  registrationLink: z.string().url().max(1200).nullable().optional(),
   date: z.string().datetime(),
 })
 

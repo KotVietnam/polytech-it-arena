@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ThemeToggle } from '../components/ThemeToggle'
+import { UserControls } from '../components/UserControls'
 import { useAuth } from '../context/AuthContext'
 import { trackNames } from '../data/tracks'
 import { useEvents } from '../hooks/useEvents'
@@ -75,11 +75,10 @@ const addressLabel = 'АДРЕС ПРОВЕДЕНИЯ'
 const addressValue =
   'IT Hub, Тастак-1, 1Б'
 
-const profileSoonLabel =
-  'Открыть профиль пользователя (скоро)'
+const profileLabel = 'Открыть профиль пользователя'
 
 export const HomePage = () => {
-  const { user } = useAuth()
+  const { user, isGuest } = useAuth()
   const { events } = useEvents()
   const nearestEvent = getNearestEvent(sortEventsByDate(events))
 
@@ -194,13 +193,16 @@ export const HomePage = () => {
     rotatingHeadlines.length,
   ])
 
-  const avatarLetter = user?.username?.trim().charAt(0).toUpperCase() || '?'
-
   return (
     <div className="bm-page relative">
       <div className="bm-wrapper relative z-10">
         <header className="bm-header">
-          <ThemeToggle />
+          <UserControls
+            username={user?.username}
+            isGuest={isGuest}
+            profileAriaLabel={profileLabel}
+            profileTitle={profileLabel}
+          />
 
           <div className="bm-title-stack">
             <h1
@@ -223,17 +225,6 @@ export const HomePage = () => {
             </Link>
           </div>
 
-          <Link
-            to="/profile"
-            className="bm-user-chip bm-user-chip-button mono"
-            aria-label={profileSoonLabel}
-            title={profileSoonLabel}
-          >
-            <div className="bm-avatar" aria-hidden="true">
-              {avatarLetter}
-            </div>
-            <div className="bm-user-text">USER: {user?.username ?? 'UNKNOWN'}</div>
-          </Link>
         </header>
 
         <div className="bm-competencies">

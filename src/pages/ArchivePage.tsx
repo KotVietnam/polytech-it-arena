@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ThemeToggle } from '../components/ThemeToggle'
+import { UserControls } from '../components/UserControls'
 import { useAuth } from '../context/AuthContext'
 import { trackNames } from '../data/tracks'
 import { useArchives } from '../hooks/useArchives'
@@ -10,16 +10,19 @@ const calendarLinkText = 'КАЛЕНДАРЬ >>'
 const adminLinkText = 'ADMIN PANEL >>'
 
 export const ArchivePage = () => {
-  const { user } = useAuth()
+  const { user, isGuest } = useAuth()
   const { archives, loading, error } = useArchives()
-
-  const avatarLetter = user?.username?.trim().charAt(0).toUpperCase() || 'G'
 
   return (
     <div className="bm-archive-page">
       <div className="bm-archive-wrapper">
         <header className="bm-archive-header">
-          <ThemeToggle />
+          <UserControls
+            username={user?.username}
+            isGuest={isGuest}
+            profileAriaLabel="Открыть профиль"
+            profileTitle="Открыть профиль"
+          />
 
           <div className="bm-title-stack bm-archive-title-stack">
             <h1 className="bm-h1 bm-h1-no-wrap">АРХИВ</h1>
@@ -42,17 +45,6 @@ export const ArchivePage = () => {
             </Link>
           </div>
 
-          <Link
-            to="/profile"
-            className="bm-user-chip bm-user-chip-button mono"
-            aria-label="Открыть профиль"
-            title="Открыть профиль"
-          >
-            <div className="bm-avatar" aria-hidden="true">
-              {avatarLetter}
-            </div>
-            <div className="bm-user-text">USER: {user?.username ?? 'GUEST'}</div>
-          </Link>
         </header>
 
         <section className="bm-archive-content">
@@ -112,4 +104,3 @@ export const ArchivePage = () => {
     </div>
   )
 }
-

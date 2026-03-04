@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ThemeToggle } from '../../components/ThemeToggle'
+import { UserControls } from '../../components/UserControls'
 import { useAuth } from '../../context/AuthContext'
 import { tracksById } from '../../data/tracks'
 import type { Level, TrackId } from '../../types'
@@ -39,12 +39,11 @@ const modalTitlePrefix = 'ПРАВИЛА:'
 const closeText = 'ЗАКРЫТЬ'
 
 export const TrackTemplatePage = ({ trackId }: TrackTemplatePageProps) => {
-  const { user } = useAuth()
+  const { user, isGuest } = useAuth()
   const track = tracksById[trackId]
 
   const [isRulesOpen, setIsRulesOpen] = useState(false)
 
-  const avatarLetter = user?.username?.trim().charAt(0).toUpperCase() || '?'
   const infoPath = `/tracks/${trackId}/info`
   const newsPath = `/tracks/${trackId}/news`
 
@@ -60,7 +59,12 @@ export const TrackTemplatePage = ({ trackId }: TrackTemplatePageProps) => {
     <div className="bm-track-page">
       <div className="bm-track-wrapper">
         <header className="bm-track-header">
-          <ThemeToggle />
+          <UserControls
+            username={user?.username}
+            isGuest={isGuest}
+            profileAriaLabel={profileSoonLabel}
+            profileTitle={profileSoonLabel}
+          />
 
           <div className="bm-track-headline-row">
             <div className="bm-title-stack bm-track-title-stack">
@@ -79,17 +83,6 @@ export const TrackTemplatePage = ({ trackId }: TrackTemplatePageProps) => {
             </Link>
           </div>
 
-          <Link
-            to="/profile"
-            className="bm-user-chip bm-user-chip-button mono"
-            aria-label={profileSoonLabel}
-            title={profileSoonLabel}
-          >
-            <div className="bm-avatar" aria-hidden="true">
-              {avatarLetter}
-            </div>
-            <div className="bm-user-text">USER: {user?.username ?? 'UNKNOWN'}</div>
-          </Link>
         </header>
 
         <div className="bm-track-resource-bar mono">

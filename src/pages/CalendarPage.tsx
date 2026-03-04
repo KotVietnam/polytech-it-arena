@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ThemeToggle } from '../components/ThemeToggle'
+import { UserControls } from '../components/UserControls'
 import { useAuth } from '../context/AuthContext'
 import { testCalendarEvents } from '../data/testEvents'
 import { trackNames } from '../data/tracks'
@@ -18,6 +18,7 @@ interface TimelineItem {
   status: TimelineStatus
   track: TrackId
   level: Level
+  registrationLink: string | null
 }
 
 const primaryTitle = 'КАЛЕНДАРЬ СОБЫТИЙ'
@@ -32,8 +33,10 @@ const registerCtaText = 'ЗАПИСАТЬСЯ'
 const registerDoneText = 'ЗАПИСАНО'
 
 const registerModalTitle = 'ЗАПИСЬ НА СОРЕВНОВАНИЕ'
-const registerModalHint =
-  'Отсканируй QR-код или перейди по ссылке, чтобы открыть форму записи.'
+const registerModalHintGuest =
+  'Для гостевого режима: отсканируй QR-код или перейди по ссылке, чтобы открыть форму записи.'
+const registerModalHintUser =
+  'Для авторизованного пользователя: подтверди запись кнопкой ниже.'
 const openLinkText = 'ПЕРЕЙТИ ПО ССЫЛКЕ'
 const confirmRegisterText = 'ПОДТВЕРДИТЬ ЗАПИСЬ'
 const closeModalText = 'ЗАКРЫТЬ'
@@ -60,7 +63,11 @@ const statusLabelMap: Record<TimelineStatus, string> = {
 const toTimeLabel = (isoDate: string) =>
   dateTimeShortFormatter.format(new Date(isoDate)).replace(',', '')
 
-const getRegistrationLink = (eventId: string) => {
+const getRegistrationLink = (eventId: string, registrationLink: string | null) => {
+  if (registrationLink && registrationLink.trim()) {
+    return registrationLink.trim()
+  }
+
   if (typeof window === 'undefined') {
     return `/calendar?register=${encodeURIComponent(eventId)}`
   }
@@ -69,7 +76,7 @@ const getRegistrationLink = (eventId: string) => {
 }
 
 export const CalendarPage = () => {
-  const { user, registerTrack } = useAuth()
+  const { user, isGuest, registerTrack } = useAuth()
   const { events } = useEvents()
   const [subtitleIndex, setSubtitleIndex] = useState(0)
   const [phase, setPhase] = useState<'typing' | 'hold' | 'deleting'>('typing')
@@ -109,6 +116,7 @@ export const CalendarPage = () => {
         status,
         track: eventItem.track,
         level: eventItem.level,
+        registrationLink: eventItem.registrationLink ?? null,
       }
     })
   }, [events, referenceTime])
@@ -147,7 +155,7 @@ export const CalendarPage = () => {
   }
 
   const handleConfirmRegister = () => {
-    if (!registerModalItem) {
+    if (!registerModalItem || isGuest) {
       return
     }
 
@@ -160,8 +168,9 @@ export const CalendarPage = () => {
     setRegisterModalItem(null)
   }
 
-  const avatarLetter = user?.username?.trim().charAt(0).toUpperCase() || '?'
-  const registrationUrl = registerModalItem ? getRegistrationLink(registerModalItem.id) : ''
+  const registrationUrl = registerModalItem
+    ? getRegistrationLink(registerModalItem.id, registerModalItem.registrationLink)
+    : ''
   const qrCodeUrl = registrationUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(registrationUrl)}`
     : ''
@@ -170,7 +179,12 @@ export const CalendarPage = () => {
     <div className="bm-tl-page">
       <div className="bm-tl-container">
         <header className="bm-tl-header">
-          <ThemeToggle />
+          <UserControls
+            username={user?.username}
+            isGuest={isGuest}
+            profileAriaLabel={profileSoonLabel}
+            profileTitle={profileSoonLabel}
+          />
 
           <div className="bm-tl-title-group">
             <h1 className="bm-h1 bm-tl-primary-title">{primaryTitle}</h1>
@@ -181,17 +195,6 @@ export const CalendarPage = () => {
             {homeLinkText}
           </Link>
 
-          <Link
-            to="/profile"
-            className="bm-user-chip bm-user-chip-button mono"
-            aria-label={profileSoonLabel}
-            title={profileSoonLabel}
-          >
-            <div className="bm-avatar" aria-hidden="true">
-              {avatarLetter}
-            </div>
-            <div className="bm-user-text">USER: {user?.username ?? 'UNKNOWN'}</div>
-          </Link>
         </header>
 
         <section className="bm-tl-timeline" aria-label="Календарь соревнований">
@@ -260,32 +263,42 @@ export const CalendarPage = () => {
               </div>
 
               <p className="bm-tl-modal-event">{registerModalItem.title}</p>
-              <p className="bm-tl-modal-hint">{registerModalHint}</p>
+              <p className="bm-tl-modal-hint">
+                {isGuest ? registerModalHintGuest : registerModalHintUser}
+              </p>
 
               <div className="bm-tl-modal-content">
-                <img
-                  src={qrCodeUrl}
-                  alt={`QR для записи на событие ${registerModalItem.title}`}
-                  className="bm-tl-modal-qr"
-                />
+                {isGuest ? (
+                  <img
+                    src={qrCodeUrl}
+                    alt={`QR для записи на событие ${registerModalItem.title}`}
+                    className="bm-tl-modal-qr"
+                  />
+                ) : (
+                  <div className="bm-tl-modal-qr bm-tl-modal-qr-placeholder mono">
+                    AUTH MODE
+                  </div>
+                )}
 
                 <div className="bm-tl-modal-actions">
-                  <a
-                    href={registrationUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="bm-tl-modal-link mono"
-                  >
-                    {openLinkText}
-                  </a>
-
-                  <button
-                    type="button"
-                    className="bm-tl-modal-confirm mono"
-                    onClick={handleConfirmRegister}
-                  >
-                    {confirmRegisterText}
-                  </button>
+                  {isGuest ? (
+                    <a
+                      href={registrationUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="bm-tl-modal-link mono"
+                    >
+                      {openLinkText}
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      className="bm-tl-modal-confirm mono"
+                      onClick={handleConfirmRegister}
+                    >
+                      {confirmRegisterText}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

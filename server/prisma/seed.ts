@@ -152,6 +152,7 @@ const main = async () => {
         duration: item.duration,
         location: item.location,
         description: item.description,
+        registrationLink: `https://itarena.kotvietnam.kz/register/${item.id}`,
         startsAt: new Date(item.startsAt),
       },
     })

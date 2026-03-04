@@ -25,6 +25,7 @@ interface UserProfile extends AuthUser {
 
 interface AuthContextValue {
   isAuthorized: boolean
+  isGuest: boolean
   user: UserProfile | null
   token: string | null
   isAuthLoading: boolean
@@ -32,6 +33,7 @@ interface AuthContextValue {
     username: string,
     password: string,
   ) => Promise<{ ok: true } | { ok: false; error: string }>
+  authorizeAsGuest: () => void
   logout: () => void
   registerTrack: (trackId: TrackId, level: Level) => void
 }
@@ -113,7 +115,7 @@ const mergeWithProgress = (serverUser: AuthUser, previous: UserProfile | null): 
 const createLocalGuestUser = (): UserProfile => ({
   id: 'guest-local',
   username: 'GUEST',
-  displayName: 'Локальный пользователь',
+  displayName: 'Гостевой режим',
   email: null,
   role: 'USER',
   totalPoints: 0,
@@ -194,6 +196,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }
 
+  const authorizeAsGuest = () => {
+    setState({
+      token: LOCAL_TOKEN,
+      user: createLocalGuestUser(),
+    })
+  }
+
   const logout = () => {
     setState(null)
   }
@@ -229,10 +238,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const value = useMemo<AuthContextValue>(
     () => ({
       isAuthorized: Boolean(state?.token && state.user),
+      isGuest: state?.token === LOCAL_TOKEN,
       user: state?.user ?? null,
       token: state?.token ?? null,
       isAuthLoading,
       authorize,
+      authorizeAsGuest,
       logout,
       registerTrack,
     }),

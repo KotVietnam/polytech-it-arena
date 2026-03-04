@@ -13,7 +13,8 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed.ts",
     "db:init": "prisma db execute --schema prisma/schema.prisma --file prisma/init.sql",
-    "db:setup": "npm run prisma:generate && npm run db:init && npm run prisma:seed"
+    "db:ensure": "tsx scripts/ensure-schema.ts",
+    "db:setup": "npm run prisma:generate && npm run db:init && npm run db:ensure && npm run prisma:seed"
   },
   "dependencies": {
     "@prisma/client": "^6.7.0",

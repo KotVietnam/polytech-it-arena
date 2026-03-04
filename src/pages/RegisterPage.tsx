@@ -29,7 +29,7 @@ const randomMatrixRow = () =>
 
 export const RegisterPage = () => {
   const navigate = useNavigate()
-  const { authorize, isAuthLoading } = useAuth()
+  const { authorize, authorizeAsGuest, isAuthLoading, isGuest } = useAuth()
   const [lines, setLines] = useState<TerminalLine[]>(initialLines)
   const [lineId, setLineId] = useState(initialLines.length + 1)
   const [inputValue, setInputValue] = useState('')
@@ -97,6 +97,18 @@ export const RegisterPage = () => {
       return
     }
 
+    if (normalized === 'guest') {
+      pushLine(`<span style="color:#ff3131;">${prompt}</span> ${value}`)
+      authorizeAsGuest()
+      pushLine(
+        "<span style='color:#00ff41;'>GUEST MODE ENABLED.</span> Вход выполнен в гостевом режиме.",
+      )
+      setTimeout(() => {
+        navigate('/home', { replace: true })
+      }, 450)
+      return
+    }
+
     if (loginStep === 'username') {
       pushLine(`<span style="color:#ff3131;">${prompt}</span> ${value}`)
       handleStepInput(value)
@@ -113,7 +125,7 @@ export const RegisterPage = () => {
 
     if (normalized === 'help') {
       pushLine(
-        "Команды:<br/>- <span style='color:#fff;'>help</span>: список команд<br/>- <span style='color:#fff;'>login</span>: открыть экран ввода логина/пароля Moodle<br/>- <span style='color:#fff;'>auth</span>: вход на сайт после login<br/>- <span style='color:#fff;'>status</span>: состояние авторизации<br/>- <span style='color:#fff;'>clear</span>: очистить экран<br/><br/>Hint: в терминале есть пасхалки.",
+        "Команды:<br/>- <span style='color:#fff;'>help</span>: список команд<br/>- <span style='color:#fff;'>login</span>: открыть экран ввода логина/пароля Moodle<br/>- <span style='color:#fff;'>auth</span>: вход на сайт после login<br/>- <span style='color:#fff;'>guest</span>: войти в гостевом режиме<br/>- <span style='color:#fff;'>status</span>: состояние авторизации<br/>- <span style='color:#fff;'>clear</span>: очистить экран<br/><br/>Hint: в терминале есть пасхалки.",
       )
       return
     }
@@ -130,7 +142,12 @@ export const RegisterPage = () => {
       const passStatus = passCandidate
         ? `<span style='color:#00ff41'>SET</span>`
         : `<span style='color:#ff3131'>EMPTY</span>`
-      pushLine(`LOGIN: ${loginStatus}<br/>PASSWORD: ${passStatus}<br/>STEP: ${loginStep}`)
+      const guestStatus = isGuest
+        ? `<span style='color:#00ff41'>ON</span>`
+        : `<span style='color:#ff3131'>OFF</span>`
+      pushLine(
+        `LOGIN: ${loginStatus}<br/>PASSWORD: ${passStatus}<br/>STEP: ${loginStep}<br/>GUEST MODE: ${guestStatus}`,
+      )
       return
     }
 

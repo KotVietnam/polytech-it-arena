@@ -2,7 +2,7 @@ import type { EventItem } from '../types'
 
 export const eventsArePlaceholders = true
 
-export const events: EventItem[] = [
+const baseEvents: EventItem[] = [
   {
     id: 'event-2026-03-04-cyber-jr',
     date: '2026-03-04T16:00:00+05:00',
@@ -136,3 +136,8 @@ export const events: EventItem[] = [
       'Комплексный сценарий отказа сервиса, восстановление и итоговый разбор.',
   },
 ]
+
+export const events: EventItem[] = baseEvents.map((eventItem) => ({
+  ...eventItem,
+  registrationLink: `https://itarena.kotvietnam.kz/register/${eventItem.id}`,
+}))

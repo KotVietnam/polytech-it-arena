@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS "Event" (
   "duration" TEXT NOT NULL,
   "location" TEXT NOT NULL,
   "description" TEXT NOT NULL,
+  "registrationLink" TEXT,
   "startsAt" DATETIME NOT NULL,
   "createdById" TEXT,
   "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

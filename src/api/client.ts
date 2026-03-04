@@ -90,6 +90,7 @@ export interface EventFormPayload {
   location: string
   description: string
   date: string
+  registrationLink?: string | null
 }
 
 export interface ArchiveFormPayload {

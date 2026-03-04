@@ -11,7 +11,7 @@ import {
   apiGetEvents,
   type AdminUserItem,
 } from '../api/client'
-import { ThemeToggle } from '../components/ThemeToggle'
+import { UserControls } from '../components/UserControls'
 import { useAuth } from '../context/AuthContext'
 import { events as fallbackEvents } from '../data/events'
 import { trackNames } from '../data/tracks'
@@ -45,12 +45,26 @@ const validateEventForm = (form: {
   location: string
   description: string
   dateLocal: string
+  registrationLink: string
 }) => {
   if (!form.title.trim()) return 'Укажите название соревнования.'
   if (!form.duration.trim()) return 'Укажите длительность соревнования.'
   if (!form.location.trim()) return 'Укажите место проведения.'
   if (form.description.trim().length < 5) return 'Описание должно быть не короче 5 символов.'
   if (!form.dateLocal.trim()) return 'Укажите дату и время проведения.'
+
+  const normalizedLink = form.registrationLink.trim()
+  if (normalizedLink) {
+    try {
+      const url = new URL(normalizedLink)
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        return 'Ссылка регистрации должна начинаться с http:// или https://.'
+      }
+    } catch {
+      return 'Некорректная ссылка регистрации.'
+    }
+  }
+
   return null
 }
 
@@ -66,7 +80,7 @@ const validateArchiveForm = (form: {
 }
 
 export const AdminPage = () => {
-  const { user, token } = useAuth()
+  const { user, token, isGuest } = useAuth()
   const canManage = Boolean(token && user?.role === 'ADMIN')
   const isViewMode = !canManage
 
@@ -85,6 +99,7 @@ export const AdminPage = () => {
     location: '',
     description: '',
     dateLocal: getDefaultLocalDateTime(),
+    registrationLink: '',
   })
 
   const [archiveForm, setArchiveForm] = useState({
@@ -96,7 +111,10 @@ export const AdminPage = () => {
 
   const sortedEvents = useMemo(() => sortEventsByDate(events), [events])
   const nearestEvent = useMemo(() => getNearestEvent(sortedEvents), [sortedEvents])
-  const avatarLetter = user?.username?.trim().charAt(0).toUpperCase() || 'G'
+  const normalizedRegistrationLink = eventForm.registrationLink.trim()
+  const eventFormQrUrl = normalizedRegistrationLink
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(normalizedRegistrationLink)}`
+    : ''
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -172,6 +190,7 @@ export const AdminPage = () => {
         location: eventForm.location.trim(),
         description: eventForm.description.trim(),
         date: isoDate,
+        registrationLink: normalizedRegistrationLink || null,
       })
       setNotice('Соревнование добавлено.')
       setEventForm((previous) => ({
@@ -180,6 +199,7 @@ export const AdminPage = () => {
         duration: '',
         location: '',
         description: '',
+        registrationLink: '',
       }))
       await loadData()
     } catch (requestError) {
@@ -271,7 +291,12 @@ export const AdminPage = () => {
     <div className="bm-admin-page">
       <div className="bm-admin-wrapper">
         <header className="bm-admin-header">
-          <ThemeToggle />
+          <UserControls
+            username={user?.username}
+            isGuest={isGuest}
+            profileAriaLabel="Открыть профиль"
+            profileTitle="Открыть профиль"
+          />
 
           <div className="bm-title-stack bm-admin-title-stack">
             <h1 className="bm-h1 bm-h1-no-wrap">ADMIN PANEL</h1>
@@ -297,17 +322,6 @@ export const AdminPage = () => {
             </Link>
           </div>
 
-          <Link
-            to="/profile"
-            className="bm-user-chip bm-user-chip-button mono"
-            aria-label="Открыть профиль"
-            title="Открыть профиль"
-          >
-            <div className="bm-avatar" aria-hidden="true">
-              {avatarLetter}
-            </div>
-            <div className="bm-user-text">USER: {user?.username ?? 'GUEST'}</div>
-          </Link>
         </header>
 
         <section className="bm-admin-content">
@@ -427,6 +441,18 @@ export const AdminPage = () => {
                       }))
                     }
                   />
+
+                  <input
+                    className="bm-admin-input"
+                    placeholder="Ссылка регистрации (https://...)"
+                    value={eventForm.registrationLink}
+                    onChange={(event) =>
+                      setEventForm((previous) => ({
+                        ...previous,
+                        registrationLink: event.target.value,
+                      }))
+                    }
+                  />
                 </div>
 
                 <textarea
@@ -440,6 +466,17 @@ export const AdminPage = () => {
                     }))
                   }
                 />
+
+                {eventFormQrUrl ? (
+                  <div className="bm-admin-qr-preview">
+                    <img
+                      src={eventFormQrUrl}
+                      alt="QR код ссылки регистрации"
+                      className="bm-admin-qr-image"
+                    />
+                    <p className="bm-admin-qr-caption mono">QR ДЛЯ ГОСТЕЙ ГОТОВ</p>
+                  </div>
+                ) : null}
 
                 <button
                   type="button"
@@ -534,6 +571,9 @@ export const AdminPage = () => {
                     <p className="bm-admin-row-meta mono">
                       {trackNames[eventItem.track]} / {eventItem.level} / {formatDateTime(eventItem.date)}
                     </p>
+                    {eventItem.registrationLink ? (
+                      <p className="bm-admin-row-meta mono">LINK: {eventItem.registrationLink}</p>
+                    ) : null}
                   </div>
                   {canManage ? (
                     <button
@@ -615,4 +655,3 @@ export const AdminPage = () => {
     </div>
   )
 }
-

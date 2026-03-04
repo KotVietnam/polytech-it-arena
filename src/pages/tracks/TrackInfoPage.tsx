@@ -1,5 +1,5 @@
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { ThemeToggle } from '../../components/ThemeToggle'
+import { UserControls } from '../../components/UserControls'
 import { useAuth } from '../../context/AuthContext'
 import { tracksById } from '../../data/tracks'
 import type { Level, TrackId } from '../../types'
@@ -19,7 +19,7 @@ const isTrackId = (value: string): value is TrackId =>
   Object.prototype.hasOwnProperty.call(tracksById, value)
 
 export const TrackInfoPage = () => {
-  const { user } = useAuth()
+  const { user, isGuest } = useAuth()
   const { trackId } = useParams<{ trackId: string }>()
   const rawTrackId = trackId ?? ''
 
@@ -28,7 +28,6 @@ export const TrackInfoPage = () => {
   }
 
   const track = tracksById[rawTrackId]
-  const avatarLetter = user?.username?.trim().charAt(0).toUpperCase() || '?'
 
   const preparationItems = Array.from(
     new Set(levelOrder.flatMap((level) => track.levels[level].preparation)),
@@ -38,7 +37,12 @@ export const TrackInfoPage = () => {
     <div className="bm-track-page">
       <div className="bm-track-wrapper">
         <header className="bm-track-header bm-track-secondary-header">
-          <ThemeToggle />
+          <UserControls
+            username={user?.username}
+            isGuest={isGuest}
+            profileAriaLabel="Open profile"
+            profileTitle="Open profile"
+          />
 
           <div className="bm-title-stack bm-track-title-stack">
             <h1 className="bm-h1">{track.name.toUpperCase()}</h1>
@@ -54,17 +58,6 @@ export const TrackInfoPage = () => {
             </Link>
           </div>
 
-          <Link
-            to="/profile"
-            className="bm-user-chip bm-user-chip-button mono"
-            aria-label="Open profile"
-            title="Open profile"
-          >
-            <div className="bm-avatar" aria-hidden="true">
-              {avatarLetter}
-            </div>
-            <div className="bm-user-text">USER: {user?.username ?? 'UNKNOWN'}</div>
-          </Link>
         </header>
 
         <section className="bm-track-section">

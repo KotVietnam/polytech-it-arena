@@ -46,6 +46,7 @@ model Event {
   duration     String
   location     String
   description  String
+  registrationLink String?
   startsAt     DateTime
   createdById  String?
   createdBy    User?         @relation("EventCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)

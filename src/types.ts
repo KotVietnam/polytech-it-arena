@@ -11,6 +11,7 @@ export interface EventItem {
   duration: string
   location: string
   description: string
+  registrationLink?: string | null
   createdAt?: string
   updatedAt?: string
 }

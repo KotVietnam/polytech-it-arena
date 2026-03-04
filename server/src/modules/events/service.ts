@@ -12,6 +12,7 @@ const toEventDto = (event: {
   duration: string
   location: string
   description: string
+  registrationLink: string | null
   startsAt: Date
   createdAt: Date
   updatedAt: Date
@@ -23,6 +24,7 @@ const toEventDto = (event: {
   duration: event.duration,
   location: event.location,
   description: event.description,
+  registrationLink: event.registrationLink,
   date: event.startsAt.toISOString(),
   createdAt: event.createdAt.toISOString(),
   updatedAt: event.updatedAt.toISOString(),
@@ -59,6 +61,7 @@ export const createEvent = async (input: EventCreateInput, createdById?: string)
       duration: input.duration,
       location: input.location,
       description: input.description,
+      registrationLink: input.registrationLink,
       startsAt: new Date(input.date),
       createdById,
     },
@@ -80,6 +83,7 @@ export const updateEvent = async (
       duration: input.duration,
       location: input.location,
       description: input.description,
+      registrationLink: input.registrationLink,
       startsAt: input.date ? new Date(input.date) : undefined,
     },
   })

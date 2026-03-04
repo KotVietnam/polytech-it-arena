@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { useAuth } from '../context/AuthContext'
 import { events } from '../data/events'
@@ -20,7 +20,7 @@ const SWITCH_DELAY_MS = 220
 const trackOrder: TrackId[] = ['cybersecurity', 'networks', 'devops', 'sysadmin']
 
 export const ProfilePage = () => {
-  const { user } = useAuth()
+  const { user, isGuest } = useAuth()
   const [subtitleIndex, setSubtitleIndex] = useState(0)
   const [phase, setPhase] = useState<'typing' | 'hold' | 'deleting'>('typing')
   const [charCount, setCharCount] = useState(0)
@@ -75,11 +75,23 @@ export const ProfilePage = () => {
     }
   })
 
+  if (isGuest) {
+    return <Navigate to="/home" replace />
+  }
+
   return (
     <div className="bm-profile-page">
       <div className="bm-profile-wrapper">
         <header className="bm-profile-header">
-          <ThemeToggle />
+          <div className="bm-user-controls">
+            <div className="bm-user-chip mono" aria-label="Current user">
+              <div className="bm-avatar" aria-hidden="true">
+                {avatarLetter}
+              </div>
+              <div className="bm-user-text">USER: {profileUser.username}</div>
+            </div>
+            <ThemeToggle className="bm-theme-toggle-inline" />
+          </div>
 
           <div className="bm-title-stack bm-profile-title-stack">
             <h1 className="bm-h1 bm-h1-no-wrap">{headerTitle}</h1>
@@ -99,12 +111,6 @@ export const ProfilePage = () => {
             </Link>
           </div>
 
-          <div className="bm-user-chip mono" aria-label="Current user">
-            <div className="bm-avatar" aria-hidden="true">
-              {avatarLetter}
-            </div>
-            <div className="bm-user-text">USER: {profileUser.username}</div>
-          </div>
         </header>
 
         <section className="bm-profile-stats-grid">
