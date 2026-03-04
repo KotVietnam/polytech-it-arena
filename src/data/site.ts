@@ -1,4 +1,4 @@
-export const CLUB_NAME = 'Cyber Club'
+export const CLUB_NAME = 'POLYTECH IT ARENA'
 
 export const monthlyFormat = [
   { week: 'Week 1', day: 'CyberSecurity Day' },
@@ -8,7 +8,7 @@ export const monthlyFormat = [
 ]
 
 export const contacts = {
-  email: 'cyberclub@college.local',
-  telegram: '@cyberclub_college',
+  email: 'polytechitarena@aspc.kz',
+  telegram: '@polytech_it_arena',
   room: 'Lab B-204',
 }

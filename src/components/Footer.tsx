@@ -6,7 +6,7 @@ export const Footer = () => (
     <div className="mx-auto grid max-w-6xl gap-5 px-4 py-6 sm:px-6 md:grid-cols-3 lg:px-8">
       <div className="border border-zinc-800 p-3">
         <p className="mono text-[11px] text-red-400">[ UNIT_INFO ]</p>
-        <p className="mt-1 text-xl font-bold uppercase text-white">Cyber Club</p>
+        <p className="mt-1 text-xl font-bold uppercase text-white">POLYTECH IT ARENA</p>
         <p className="mt-2 text-sm text-zinc-400">
           Blue Team vs Red Team по направлениям CyberSecurity, Networks, DevOps и
           SysAdmin.
@@ -37,7 +37,7 @@ export const Footer = () => (
       </div>
     </div>
     <div className="mono border-t border-zinc-800 py-3 text-center text-[11px] text-zinc-500">
-      © {new Date().getFullYear()} CYBER CLUB // RESTRICTED SCHOOL NETWORK
+      © {new Date().getFullYear()} POLYTECH IT ARENA // RESTRICTED SCHOOL NETWORK
     </div>
   </footer>
 )

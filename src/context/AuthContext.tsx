@@ -43,7 +43,7 @@ interface SessionPayload {
   user: UserProfile
 }
 
-const SESSION_KEY = 'cyberclub-auth-session'
+const SESSION_KEY = 'polytech-it-arena-auth-session'
 const LOCAL_TOKEN = '__local_guest__'
 
 const levelPoints: Record<Level, number> = {
