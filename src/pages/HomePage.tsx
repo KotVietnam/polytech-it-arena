@@ -81,6 +81,7 @@ export const HomePage = () => {
   const { user, isGuest } = useAuth()
   const { events } = useEvents()
   const nearestEvent = getNearestEvent(sortEventsByDate(events))
+  const isAdmin = user?.role === 'ADMIN'
 
   const [headlineIndex, setHeadlineIndex] = useState(0)
   const [phase, setPhase] = useState<RotationPhase>('typing')
@@ -220,9 +221,11 @@ export const HomePage = () => {
             <Link to="/archive" className="bm-header-action mono">
               {archiveLinkText}
             </Link>
-            <Link to="/admin" className="bm-header-action mono">
-              {adminLinkText}
-            </Link>
+            {isAdmin ? (
+              <Link to="/admin" className="bm-header-action mono">
+                {adminLinkText}
+              </Link>
+            ) : null}
           </div>
 
         </header>
