@@ -211,19 +211,16 @@ export const HomePage = () => {
             <h1 className="bm-h1 bm-h1-outline">{visibleLine2}</h1>
           </div>
 
-          <Link to="/calendar" className="bm-header-schedule mono">
-            {scheduleLinkText}
-          </Link>
-
-          <div className="absolute bottom-10 left-10 flex flex-wrap gap-3">
-            <Link to="/archive" className="bm-header-schedule mono" style={{ position: 'static' }}>
+          <div className="bm-header-actions">
+            <Link to="/calendar" className="bm-header-action mono">
+              {scheduleLinkText}
+            </Link>
+            <Link to="/archive" className="bm-header-action mono">
               {archiveLinkText}
             </Link>
-            {user?.role === 'ADMIN' ? (
-              <Link to="/admin" className="bm-header-schedule mono" style={{ position: 'static' }}>
-                {adminLinkText}
-              </Link>
-            ) : null}
+            <Link to="/admin" className="bm-header-action mono">
+              {adminLinkText}
+            </Link>
           </div>
 
           <Link

@@ -10,22 +10,13 @@ interface TrackTemplatePageProps {
 }
 
 const levelOrder: Level[] = ['Junior', 'Middle', 'Senior']
-const levelPoints: Record<Level, number> = {
-  Junior: 60,
-  Middle: 95,
-  Senior: 130,
-}
 
-const subtitleText =
-  'БОЕВОЙ ТРЕК BLUE vs RED'
+const subtitleText = 'БОЕВОЙ ТРЕК BLUE vs RED'
 const homeLinkText = 'НА ГЛАВНУЮ >>'
-const calendarLinkText =
-  'СМОТРЕТЬ КАЛЕНДАРЬ >>'
-const profileSoonLabel =
-  'Открыть профиль пользователя (скоро)'
+const calendarLinkText = 'СМОТРЕТЬ КАЛЕНДАРЬ >>'
+const profileSoonLabel = 'Открыть профиль пользователя'
 
-const resourcesTitle =
-  'ПОЛЕЗНАЯ ИНФОРМАЦИЯ'
+const resourcesTitle = 'ПОЛЕЗНАЯ ИНФОРМАЦИЯ'
 const newsTitle = 'НОВОСТИ'
 const rulesTitle = 'ПРАВИЛА'
 
@@ -44,29 +35,14 @@ const learnTitle = 'ЧТО ПРОКАЧАЕШЬ'
 const learnIntro =
   'Навыки и умения, которые ты заберешь после нескольких ивентов.'
 
-const registerButtonText =
-  'РЕГИСТРАЦИЯ НА СОРЕВНОВАНИЕ'
-const registeredPrefix =
-  'Регистрация подтверждена'
-
 const modalTitlePrefix = 'ПРАВИЛА:'
 const closeText = 'ЗАКРЫТЬ'
 
 export const TrackTemplatePage = ({ trackId }: TrackTemplatePageProps) => {
-  const { user, registerTrack } = useAuth()
+  const { user } = useAuth()
   const track = tracksById[trackId]
 
-  const [registerMessage, setRegisterMessage] = useState('')
-  const [isRegisterOpen, setIsRegisterOpen] = useState(false)
   const [isRulesOpen, setIsRulesOpen] = useState(false)
-
-  const handleRegistration = (level: Level) => {
-    registerTrack(trackId, level)
-    setRegisterMessage(
-      `${registeredPrefix}: ${track.name} (${level}) / +${levelPoints[level]} PTS`,
-    )
-    setIsRegisterOpen(false)
-  }
 
   const avatarLetter = user?.username?.trim().charAt(0).toUpperCase() || '?'
   const infoPath = `/tracks/${trackId}/info`
@@ -94,33 +70,6 @@ export const TrackTemplatePage = ({ trackId }: TrackTemplatePageProps) => {
             </div>
           </div>
 
-          <div className="bm-track-register-top">
-            <button
-              type="button"
-              className="bm-track-register-top-btn mono"
-              onClick={() => setIsRegisterOpen((value) => !value)}
-              aria-expanded={isRegisterOpen}
-              aria-label={registerButtonText}
-            >
-              {registerButtonText}
-            </button>
-
-            {isRegisterOpen ? (
-              <div className="bm-track-register-pop">
-                {levelOrder.map((level) => (
-                  <button
-                    key={level}
-                    type="button"
-                    className="bm-track-register-option mono"
-                    onClick={() => handleRegistration(level)}
-                  >
-                    {`${level} (+${levelPoints[level]})`}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-
           <div className="bm-track-header-links">
             <Link to="/home" className="bm-track-header-link mono">
               {homeLinkText}
@@ -141,10 +90,6 @@ export const TrackTemplatePage = ({ trackId }: TrackTemplatePageProps) => {
             </div>
             <div className="bm-user-text">USER: {user?.username ?? 'UNKNOWN'}</div>
           </Link>
-
-          {registerMessage ? (
-            <p className="bm-track-head-message mono">{registerMessage}</p>
-          ) : null}
         </header>
 
         <div className="bm-track-resource-bar mono">
@@ -193,12 +138,7 @@ export const TrackTemplatePage = ({ trackId }: TrackTemplatePageProps) => {
           <div className="bm-track-grid bm-track-grid-levels">
             {levelOrder.map((level) => (
               <article key={level} className="bm-track-level-card">
-                <div className="bm-track-level-head">
-                  <h3 className="bm-track-level-title mono">{level}</h3>
-                  <span className="bm-track-level-points mono">
-                    +{levelPoints[level]} PTS
-                  </span>
-                </div>
+                <h3 className="bm-track-level-title mono">{level}</h3>
 
                 <p className="bm-track-level-label mono">{goalsLabel}</p>
                 <ul className="bm-track-list">

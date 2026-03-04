@@ -49,20 +49,24 @@ export const ProfilePage = () => {
     return () => clearTimeout(timer)
   }, [activeSubtitle.length, charCount, phase])
 
-  if (!user) {
-    return null
+  const profileUser = user ?? {
+    username: 'GUEST',
+    totalPoints: 0,
+    registrations: [],
+    id: 'guest',
+    role: 'USER' as const,
   }
 
-  const avatarLetter = user.username.trim().charAt(0).toUpperCase() || '?'
-  const lastRegistration = user.registrations[0] ?? null
+  const avatarLetter = profileUser.username.trim().charAt(0).toUpperCase() || '?'
+  const lastRegistration = profileUser.registrations[0] ?? null
   const nearestEvent = getNearestEvent(sortEventsByDate(events))
 
-  const averagePoints = user.registrations.length
-    ? Math.round(user.totalPoints / user.registrations.length)
+  const averagePoints = profileUser.registrations.length
+    ? Math.round(profileUser.totalPoints / profileUser.registrations.length)
     : 0
 
   const trackStats = trackOrder.map((trackId) => {
-    const entries = user.registrations.filter((item) => item.trackId === trackId)
+    const entries = profileUser.registrations.filter((item) => item.trackId === trackId)
     return {
       trackId,
       name: trackNames[trackId],
@@ -99,19 +103,19 @@ export const ProfilePage = () => {
             <div className="bm-avatar" aria-hidden="true">
               {avatarLetter}
             </div>
-            <div className="bm-user-text">USER: {user.username}</div>
+            <div className="bm-user-text">USER: {profileUser.username}</div>
           </div>
         </header>
 
         <section className="bm-profile-stats-grid">
           <article className="bm-profile-stat-card">
             <p className="bm-profile-stat-label mono">ОБЩИЕ БАЛЛЫ</p>
-            <p className="bm-profile-stat-value">{user.totalPoints}</p>
+            <p className="bm-profile-stat-value">{profileUser.totalPoints}</p>
           </article>
 
           <article className="bm-profile-stat-card">
             <p className="bm-profile-stat-label mono">РЕГИСТРАЦИИ</p>
-            <p className="bm-profile-stat-value">{user.registrations.length}</p>
+            <p className="bm-profile-stat-value">{profileUser.registrations.length}</p>
           </article>
 
           <article className="bm-profile-stat-card">
@@ -153,9 +157,9 @@ export const ProfilePage = () => {
         <section className="bm-track-section bm-track-section-last">
           <h2 className="bm-track-section-title mono">ПОСЛЕДНИЕ РЕГИСТРАЦИИ</h2>
 
-          {user.registrations.length ? (
+          {profileUser.registrations.length ? (
             <div className="bm-profile-log-list">
-              {user.registrations.slice(0, 12).map((entry) => (
+              {profileUser.registrations.slice(0, 12).map((entry) => (
                 <article key={entry.id} className="bm-profile-log-row">
                   <div>
                     <p className="bm-profile-log-title mono">
@@ -169,8 +173,8 @@ export const ProfilePage = () => {
             </div>
           ) : (
             <p className="bm-profile-empty">
-              Пока нет регистраций. Перейди в нужную компетенцию и нажми кнопку
-              регистрации на соревнование.
+              Пока нет регистраций. Открой календарь событий и запишись на
+              ближайшее соревнование.
             </p>
           )}
 

@@ -1,68 +1,115 @@
-import { Card } from '../components/Card'
-import { SectionTitle } from '../components/SectionTitle'
+import { Link } from 'react-router-dom'
+import { ThemeToggle } from '../components/ThemeToggle'
+import { useAuth } from '../context/AuthContext'
 import { trackNames } from '../data/tracks'
 import { useArchives } from '../hooks/useArchives'
 import { formatDateTime } from '../utils/date'
 
+const homeLinkText = 'НА ГЛАВНУЮ >>'
+const calendarLinkText = 'КАЛЕНДАРЬ >>'
+const adminLinkText = 'ADMIN PANEL >>'
+
 export const ArchivePage = () => {
+  const { user } = useAuth()
   const { archives, loading, error } = useArchives()
 
+  const avatarLetter = user?.username?.trim().charAt(0).toUpperCase() || 'G'
+
   return (
-    <div className="space-y-6">
-      <SectionTitle
-        eyebrow="Архив"
-        title="Архив соревнований"
-        description="Прошедшие мероприятия, итоги и прикрепленные материалы."
-      />
+    <div className="bm-archive-page">
+      <div className="bm-archive-wrapper">
+        <header className="bm-archive-header">
+          <ThemeToggle />
 
-      {loading ? <Card>Загрузка архива...</Card> : null}
+          <div className="bm-title-stack bm-archive-title-stack">
+            <h1 className="bm-h1 bm-h1-no-wrap">АРХИВ</h1>
+            <h1 className="bm-h1 bm-h1-outline">ПРОШЕДШИЕ СОБЫТИЯ</h1>
+            <p className="bm-archive-subtitle">
+              Лента завершенных мероприятий, итогов и материалов по трекам
+              CyberSecurity, Networks, DevOps и SysAdmin.
+            </p>
+          </div>
 
-      {error ? (
-        <Card className="border border-red-700/80 bg-red-700/10 text-red-200">
-          Не удалось загрузить архив: {error}
-        </Card>
-      ) : null}
+          <div className="bm-archive-header-links">
+            <Link to="/home" className="bm-track-header-link mono">
+              {homeLinkText}
+            </Link>
+            <Link to="/calendar" className="bm-track-header-link mono">
+              {calendarLinkText}
+            </Link>
+            <Link to="/admin" className="bm-track-header-link mono">
+              {adminLinkText}
+            </Link>
+          </div>
 
-      {!loading && !error && archives.length === 0 ? (
-        <Card className="border border-zinc-700 bg-black/70 text-zinc-300">
-          Архив пока пуст. Записи появятся после публикации администратором.
-        </Card>
-      ) : null}
+          <Link
+            to="/profile"
+            className="bm-user-chip bm-user-chip-button mono"
+            aria-label="Открыть профиль"
+            title="Открыть профиль"
+          >
+            <div className="bm-avatar" aria-hidden="true">
+              {avatarLetter}
+            </div>
+            <div className="bm-user-text">USER: {user?.username ?? 'GUEST'}</div>
+          </Link>
+        </header>
 
-      {!loading && !error && archives.length > 0 ? (
-        <div className="grid gap-4">
-          {archives.map((entry) => (
-            <Card key={entry.id} className="space-y-3">
-              <p className="mono text-xs text-red-400">
-                {trackNames[entry.event.track]} / {entry.event.level} /{' '}
-                {formatDateTime(entry.event.date)}
-              </p>
+        <section className="bm-archive-content">
+          {loading ? (
+            <article className="bm-archive-state-panel">Загрузка архива...</article>
+          ) : null}
 
-              <h3 className="text-xl font-semibold text-white">{entry.event.title}</h3>
-              <p className="text-sm text-zinc-400">{entry.event.description}</p>
+          {error ? (
+            <article className="bm-archive-state-panel bm-archive-state-panel-error">
+              Не удалось загрузить архив: {error}
+            </article>
+          ) : null}
 
-              <div className="grid gap-3 text-sm md:grid-cols-2">
-                <div className="rounded-none border border-zinc-800 bg-black/55 p-3">
-                  <p className="mono text-[11px] text-red-300">Summary</p>
-                  <p className="mt-2 text-zinc-200">{entry.summary}</p>
-                </div>
-                <div className="rounded-none border border-zinc-800 bg-black/55 p-3">
-                  <p className="mono text-[11px] text-red-300">Materials</p>
-                  {entry.materials.length ? (
-                    <ul className="mt-2 space-y-1 text-zinc-200">
-                      {entry.materials.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-2 text-zinc-400">Без приложенных материалов</p>
-                  )}
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      ) : null}
+          {!loading && !error && archives.length === 0 ? (
+            <article className="bm-archive-state-panel">
+              Архив пока пуст. Записи появятся после публикации администратором.
+            </article>
+          ) : null}
+
+          {!loading && !error && archives.length > 0 ? (
+            <div className="bm-archive-grid">
+              {archives.map((entry) => (
+                <article key={entry.id} className="bm-archive-card">
+                  <p className="bm-archive-meta mono">
+                    {trackNames[entry.event.track]} / {entry.event.level} /{' '}
+                    {formatDateTime(entry.event.date)}
+                  </p>
+
+                  <h2 className="bm-archive-title">{entry.event.title}</h2>
+                  <p className="bm-archive-desc">{entry.event.description}</p>
+
+                  <div className="bm-archive-inner-grid">
+                    <section className="bm-archive-inner-panel">
+                      <p className="bm-archive-inner-label mono">ИТОГ</p>
+                      <p className="bm-archive-inner-text">{entry.summary}</p>
+                    </section>
+
+                    <section className="bm-archive-inner-panel">
+                      <p className="bm-archive-inner-label mono">МАТЕРИАЛЫ</p>
+                      {entry.materials.length ? (
+                        <ul className="bm-archive-materials">
+                          {entry.materials.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="bm-archive-inner-text">Без приложенных материалов</p>
+                      )}
+                    </section>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      </div>
     </div>
   )
 }
+

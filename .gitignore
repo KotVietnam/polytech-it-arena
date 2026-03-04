@@ -20,6 +20,14 @@ server/dev.db-journal
 server/prisma/dev.db
 server/prisma/dev.db-journal
 
+# Temporary auth bypass: keep local auth/backend auth changes out of front-only commits
+src/context/AuthContext.tsx
+src/components/ProtectedRoute.tsx
+src/components/AdminRoute.tsx
+src/pages/RegisterPage.tsx
+server/src/middleware/auth.ts
+server/src/modules/auth/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -28,7 +28,10 @@ interface AuthContextValue {
   user: UserProfile | null
   token: string | null
   isAuthLoading: boolean
-  authorize: (username: string, password: string) => Promise<{ ok: true } | { ok: false; error: string }>
+  authorize: (
+    username: string,
+    password: string,
+  ) => Promise<{ ok: true } | { ok: false; error: string }>
   logout: () => void
   registerTrack: (trackId: TrackId, level: Level) => void
 }
@@ -39,6 +42,7 @@ interface SessionPayload {
 }
 
 const SESSION_KEY = 'cyberclub-auth-session'
+const LOCAL_TOKEN = '__local_guest__'
 
 const levelPoints: Record<Level, number> = {
   Junior: 60,
@@ -106,6 +110,16 @@ const mergeWithProgress = (serverUser: AuthUser, previous: UserProfile | null): 
   }
 }
 
+const createLocalGuestUser = (): UserProfile => ({
+  id: 'guest-local',
+  username: 'GUEST',
+  displayName: 'Локальный пользователь',
+  email: null,
+  role: 'USER',
+  totalPoints: 0,
+  registrations: [],
+})
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<SessionPayload | null>(() =>
     parseSession(sessionStorage.getItem(SESSION_KEY)),
@@ -122,7 +136,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const token = state?.token
-    if (!token) {
+    if (!token || token === LOCAL_TOKEN) {
       return
     }
 
@@ -172,7 +186,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }))
       return { ok: true }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Ошибка авторизации'
+      const message =
+        error instanceof Error ? error.message : 'Ошибка авторизации'
       return { ok: false, error: message }
     } finally {
       setIsAuthLoading(false)
@@ -185,9 +200,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const registerTrack = (trackId: TrackId, level: Level) => {
     setState((previous) => {
-      if (!previous) {
-        return previous
-      }
+      const baseState: SessionPayload =
+        previous ?? {
+          token: LOCAL_TOKEN,
+          user: createLocalGuestUser(),
+        }
 
       const points = levelPoints[level]
       const newEntry: RegistrationEntry = {
@@ -199,11 +216,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       return {
-        ...previous,
+        token: baseState.token,
         user: {
-          ...previous.user,
-          totalPoints: previous.user.totalPoints + points,
-          registrations: [newEntry, ...previous.user.registrations].slice(0, 30),
+          ...baseState.user,
+          totalPoints: baseState.user.totalPoints + points,
+          registrations: [newEntry, ...baseState.user.registrations].slice(0, 30),
         },
       }
     })
