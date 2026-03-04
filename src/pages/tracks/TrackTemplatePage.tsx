@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { UserControls } from '../../components/UserControls'
 import { useAuth } from '../../context/AuthContext'
@@ -85,9 +85,6 @@ const ctaFallbackTitle = 'Cyber Training Session'
 const ctaFallbackMeta = 'Дата и время будут опубликованы в календаре'
 const ctaButtonText = 'JOIN THE EVENT'
 
-const modalTitlePrefix = 'ПРАВИЛА:'
-const closeText = 'ЗАКРЫТЬ'
-
 const ShieldIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
     <path d="M12 3 4 6v6c0 5 3.5 8.7 8 9 4.5-.3 8-4 8-9V6l-8-3Z" stroke="currentColor" strokeWidth="1.8" />
@@ -146,8 +143,6 @@ export const TrackTemplatePage = ({ trackId }: TrackTemplatePageProps) => {
   const { events } = useEvents({ track: trackId })
   const track = tracksById[trackId]
 
-  const [isRulesOpen, setIsRulesOpen] = useState(false)
-
   const nearestEvent = getNearestEvent(sortEventsByDate(events))
   const nextEventTitle = nearestEvent?.title ?? ctaFallbackTitle
   const nextEventMeta = nearestEvent
@@ -156,14 +151,7 @@ export const TrackTemplatePage = ({ trackId }: TrackTemplatePageProps) => {
 
   const infoPath = `/tracks/${trackId}/info`
   const newsPath = `/tracks/${trackId}/news`
-
-  const rules = [
-    'Только учебный полигон и стенд.',
-    'Запрет атак в реальную сеть колледжа.',
-    'Нельзя использовать DoS по инфраструктуре и оборудованию.',
-    'Уважай команды, все действия фиксируются в логах.',
-    'После ивента обязателен совместный разбор решений.',
-  ]
+  const rulesPath = `/tracks/${trackId}/info#rules-regulation`
 
   return (
     <div className="bm-track-page">
@@ -201,13 +189,9 @@ export const TrackTemplatePage = ({ trackId }: TrackTemplatePageProps) => {
           <Link to={newsPath} className="bm-track-resource-link">
             {newsTitle}
           </Link>
-          <button
-            type="button"
-            className="bm-track-resource-btn"
-            onClick={() => setIsRulesOpen(true)}
-          >
+          <Link to={rulesPath} className="bm-track-resource-link">
             {rulesTitle}
-          </button>
+          </Link>
         </div>
 
         <section className="bm-track-section">
@@ -321,39 +305,6 @@ export const TrackTemplatePage = ({ trackId }: TrackTemplatePageProps) => {
             </Link>
           </article>
         </section>
-
-        {isRulesOpen ? (
-          <div
-            className="bm-track-modal-backdrop"
-            role="presentation"
-            onClick={() => setIsRulesOpen(false)}
-          >
-            <div
-              role="dialog"
-              aria-modal="true"
-              className="bm-track-modal"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="bm-track-modal-head">
-                <p className="bm-track-modal-title mono">
-                  {`${modalTitlePrefix} ${track.name.toUpperCase()}`}
-                </p>
-                <button
-                  type="button"
-                  className="bm-track-modal-close mono"
-                  onClick={() => setIsRulesOpen(false)}
-                >
-                  {closeText}
-                </button>
-              </div>
-              <ul className="bm-track-list">
-                {rules.map((rule) => (
-                  <li key={rule}>{rule}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        ) : null}
       </div>
     </div>
   )
