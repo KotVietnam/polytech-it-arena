@@ -61,13 +61,13 @@ export const Header = ({ theme, onToggleTheme }: HeaderProps) => {
             type="button"
             onClick={onToggleTheme}
             aria-label={
-              theme === 'dark'
-                ? 'Переключить на светлую тему'
-                : 'Переключить на темную тему'
+              theme === 'red'
+                ? 'Switch to blue theme'
+                : 'Switch to red theme'
             }
             className="focus-ring mono border border-zinc-700 px-3 py-2 text-xs text-zinc-200 hover:border-red-600 hover:text-red-300"
           >
-            {theme === 'dark' ? 'LIGHT' : 'DARK'}
+            {theme === 'red' ? 'BLUE' : 'RED'}
           </button>
 
           <button

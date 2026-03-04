@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ThemeToggle } from '../../components/ThemeToggle'
 import { useAuth } from '../../context/AuthContext'
 import { tracksById } from '../../data/tracks'
 import type { Level, TrackId } from '../../types'
@@ -83,6 +84,8 @@ export const TrackTemplatePage = ({ trackId }: TrackTemplatePageProps) => {
     <div className="bm-track-page">
       <div className="bm-track-wrapper">
         <header className="bm-track-header">
+          <ThemeToggle />
+
           <div className="bm-track-headline-row">
             <div className="bm-title-stack bm-track-title-stack">
               <h1 className="bm-h1">{track.name.toUpperCase()}</h1>

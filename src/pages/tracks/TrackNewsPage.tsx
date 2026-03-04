@@ -1,4 +1,5 @@
 import { Link, Navigate, useParams } from 'react-router-dom'
+import { ThemeToggle } from '../../components/ThemeToggle'
 import { useAuth } from '../../context/AuthContext'
 import { trackNames, tracksById } from '../../data/tracks'
 import { useEvents } from '../../hooks/useEvents'
@@ -34,6 +35,8 @@ export const TrackNewsPage = () => {
     <div className="bm-track-page">
       <div className="bm-track-wrapper">
         <header className="bm-track-header bm-track-secondary-header">
+          <ThemeToggle />
+
           <div className="bm-title-stack bm-track-title-stack">
             <h1 className="bm-h1">{track.name.toUpperCase()}</h1>
             <h1 className="bm-h1 bm-h1-outline">{newsTitle}</h1>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ThemeToggle } from '../components/ThemeToggle'
 import { useAuth } from '../context/AuthContext'
 import { events } from '../data/events'
 import { trackNames } from '../data/tracks'
@@ -74,6 +75,8 @@ export const ProfilePage = () => {
     <div className="bm-profile-page">
       <div className="bm-profile-wrapper">
         <header className="bm-profile-header">
+          <ThemeToggle />
+
           <div className="bm-title-stack bm-profile-title-stack">
             <h1 className="bm-h1 bm-h1-no-wrap">{headerTitle}</h1>
             <h1 className="bm-h1 bm-h1-outline">{activeSubtitle.slice(0, charCount)}</h1>

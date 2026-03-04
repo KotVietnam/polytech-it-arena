@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ThemeToggle } from '../components/ThemeToggle'
 import { useAuth } from '../context/AuthContext'
 
 interface TerminalLine {
@@ -201,7 +202,9 @@ export const RegisterPage = () => {
   }
 
   return (
-    <div className="fx-frame relative min-h-screen overflow-hidden bg-[#0a0a0a]">
+    <div className="bm-auth-page fx-frame relative min-h-screen overflow-hidden bg-[#0a0a0a]">
+      <ThemeToggle className="bm-theme-toggle-auth" />
+
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 z-10 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.15)_50%),linear-gradient(90deg,rgba(255,0,0,0.04),rgba(0,255,0,0.01),rgba(0,0,255,0.04))] bg-[length:100%_3px,3px_100%] motion-safe:animate-flicker"

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ThemeToggle } from '../components/ThemeToggle'
 import { useAuth } from '../context/AuthContext'
 import { trackNames } from '../data/tracks'
 import { useEvents } from '../hooks/useEvents'
@@ -115,6 +116,8 @@ export const CalendarPage = () => {
     <div className="bm-tl-page">
       <div className="bm-tl-container">
         <header className="bm-tl-header">
+          <ThemeToggle />
+
           <div className="bm-tl-title-group">
             <h1 className="bm-h1 bm-tl-primary-title">{primaryTitle}</h1>
             <h1 className="bm-h1 bm-h1-outline">

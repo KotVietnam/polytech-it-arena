@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react'
 
-export type Theme = 'dark' | 'light'
+export type Theme = 'red' | 'blue'
 
-const STORAGE_KEY = 'cyberclub-theme'
+const STORAGE_KEY = 'polytech-it-arena-theme'
 
 const isTheme = (value: string | null): value is Theme =>
-  value === 'dark' || value === 'light'
+  value === 'red' || value === 'blue'
 
 const resolveInitialTheme = (): Theme => {
   if (typeof window === 'undefined') {
-    return 'dark'
+    return 'red'
   }
 
   const stored = localStorage.getItem(STORAGE_KEY)
@@ -17,11 +17,10 @@ const resolveInitialTheme = (): Theme => {
     return stored
   }
 
-  return 'dark'
+  return 'red'
 }
 
 const applyTheme = (theme: Theme) => {
-  document.documentElement.classList.toggle('dark', theme === 'dark')
   document.documentElement.setAttribute('data-theme', theme)
 }
 
@@ -34,7 +33,7 @@ export const useTheme = () => {
   }, [theme])
 
   const toggleTheme = () => {
-    setTheme((previousTheme) => (previousTheme === 'dark' ? 'light' : 'dark'))
+    setTheme((previousTheme) => (previousTheme === 'red' ? 'blue' : 'red'))
   }
 
   return { theme, toggleTheme }

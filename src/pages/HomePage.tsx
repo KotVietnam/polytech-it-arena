@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ThemeToggle } from '../components/ThemeToggle'
 import { useAuth } from '../context/AuthContext'
 import { trackNames } from '../data/tracks'
 import { useEvents } from '../hooks/useEvents'
@@ -199,6 +200,8 @@ export const HomePage = () => {
     <div className="bm-page relative">
       <div className="bm-wrapper relative z-10">
         <header className="bm-header">
+          <ThemeToggle />
+
           <div className="bm-title-stack">
             <h1
               className={`bm-h1 ${activeHeadline.kind === 'cyber' ? 'bm-h1-no-wrap' : ''}`}
