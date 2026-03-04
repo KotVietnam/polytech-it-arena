@@ -1379,30 +1379,30 @@ a {
 
 .bm-track-section {
   border-bottom: 1px solid #202020;
-  padding: 28px 40px;
+  padding: 34px 40px;
 }
 
 .bm-track-section-title {
-  margin: 0 0 16px;
-  color: #ff5f5f;
-  font-size: 0.82rem;
+  margin: 0 0 14px;
+  color: #ff7171;
+  font-size: 0.78rem;
   text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
 }
 
 .bm-track-section-intro {
-  margin: -4px 0 14px;
-  color: #9f9f9f;
-  font-size: 0.95rem;
-  line-height: 1.5;
-  max-width: 860px;
+  margin: 0 auto 18px;
+  color: #aeaeae;
+  font-size: 0.96rem;
+  line-height: 1.72;
+  max-width: 980px;
   text-align: center;
-  margin-left: auto;
-  margin-right: auto;
 }
 
 .bm-track-grid {
   display: grid;
-  gap: 14px;
+  gap: 18px;
 }
 
 .bm-track-grid-overview {
@@ -1415,66 +1415,166 @@ a {
 }
 
 .bm-track-grid-flow {
-  grid-template-columns: repeat(2, minmax(240px, 1fr));
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
 }
 
 .bm-track-grid-levels {
-  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  grid-template-columns: repeat(3, minmax(240px, 1fr));
+}
+
+.bm-track-grid-steps {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .bm-track-grid-center {
   justify-content: center;
 }
 
+.bm-track-hover-card {
+  transition: transform 0.24s ease, border-color 0.24s ease, box-shadow 0.24s ease;
+}
+
+.bm-track-hover-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(239, 68, 68, 0.65);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
+}
+
+.bm-track-competition-card,
+.bm-track-level-card,
+.bm-track-step-card,
+.bm-track-learn-card,
+.bm-track-cta-card,
 .bm-track-panel {
-  border: 1px solid #252525;
-  background: #000;
-  padding: 18px;
-  color: #dcdcdc;
-  line-height: 1.58;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  background: rgba(10, 10, 10, 0.7);
+  backdrop-filter: blur(6px);
+  padding: 24px;
+  color: #d9d9d9;
+  line-height: 1.7;
   font-size: 0.92rem;
 }
 
 .bm-track-panel-strong {
-  border-color: #3a3a3a;
-  background: #000;
+  border-color: rgba(239, 68, 68, 0.24);
 }
 
 .bm-track-panel-title {
   margin: 0 0 10px;
-  color: #ffb4b4;
+  color: #ff9a9a;
   font-size: 0.76rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
 }
 
 .bm-track-panel-text {
   margin: 0;
-  color: #d5d5d5;
+  color: #c8c8c8;
 }
 
 .bm-track-panel-center {
   text-align: center;
 }
 
+.bm-track-competition-card-blue {
+  border-left: 3px solid #3b82f6;
+}
+
+.bm-track-competition-card-red {
+  border-left: 3px solid #ef4444;
+}
+
+.bm-track-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.bm-track-card-title {
+  margin: 0;
+  color: #f6f6f6;
+  font-size: 0.86rem;
+  letter-spacing: 0.12em;
+}
+
+.bm-track-icon {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.bm-track-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.bm-track-icon-blue {
+  color: #3b82f6;
+  border-color: rgba(59, 130, 246, 0.45);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.bm-track-icon-red {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.bm-track-icon-junior {
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.bm-track-icon-middle {
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.bm-track-icon-senior {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.12);
+}
+
 .bm-track-level-card {
-  border: 1px solid #252525;
-  background: #000;
-  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 10px;
+}
+
+.bm-track-level-card-junior {
+  border-left: 3px solid #10b981;
+}
+
+.bm-track-level-card-middle {
+  border-left: 3px solid #f59e0b;
+}
+
+.bm-track-level-card-senior {
+  border-left: 3px solid #ef4444;
 }
 
 .bm-track-level-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  display: inline-flex;
+  align-items: center;
   gap: 10px;
+  margin-bottom: 4px;
 }
 
 .bm-track-level-title {
   margin: 0;
   color: #ffffff;
   font-size: 1rem;
+  letter-spacing: 0.08em;
 }
 
 .bm-track-level-points {
@@ -1482,25 +1582,101 @@ a {
   font-size: 0.68rem;
 }
 
+.bm-track-subsection-label,
 .bm-track-level-label {
-  margin: 4px 0 0;
-  color: #ff6c6c;
-  font-size: 0.68rem;
+  margin: 8px 0 0;
+  color: #ff9a9a;
+  font-size: 0.67rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .bm-track-list {
   margin: 0;
   padding-left: 18px;
-  color: #bfbfbf;
+  color: #c6c6c6;
   font-size: 0.9rem;
-  line-height: 1.45;
+  line-height: 1.65;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
 }
 
 .bm-track-list li {
-  padding: 3px 0;
+  padding: 2px 0;
+}
+
+.bm-track-step-card {
+  min-height: 190px;
+  border-left: 3px solid rgba(239, 68, 68, 0.75);
+}
+
+.bm-track-step-id {
+  margin: 0 0 10px;
+  color: #ff8f8f;
+  font-size: 0.72rem;
+}
+
+.bm-track-step-title {
+  margin: 0;
+  color: #f5f5f5;
+  font-size: 1.12rem;
+  font-family: 'Rajdhani', 'Segoe UI', sans-serif;
+  line-height: 1.2;
+}
+
+.bm-track-step-text {
+  margin: 10px 0 0;
+  color: #b9b9b9;
+  font-size: 0.92rem;
+  line-height: 1.62;
+}
+
+.bm-track-learn-card {
+  border-left: 3px solid rgba(59, 130, 246, 0.7);
+}
+
+.bm-track-cta-card {
+  border-left: 3px solid rgba(16, 185, 129, 0.75);
+  display: grid;
+  gap: 10px;
+}
+
+.bm-track-cta-kicker {
+  margin: 0;
+  color: #8dd3ba;
+  font-size: 0.72rem;
+}
+
+.bm-track-cta-title {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(1.3rem, 2vw, 1.9rem);
+  line-height: 1.18;
+  font-family: 'Rajdhani', 'Segoe UI', sans-serif;
+}
+
+.bm-track-cta-meta {
+  margin: 0;
+  color: #b8b8b8;
+  line-height: 1.62;
+  font-size: 0.95rem;
+}
+
+.bm-track-cta-btn {
+  justify-self: start;
+  margin-top: 4px;
+  border: 1px solid rgba(16, 185, 129, 0.7);
+  color: #b9f1dd;
+  padding: 10px 14px;
+  border-radius: 8px;
+  transition: background 0.22s ease, color 0.22s ease, border-color 0.22s ease;
+}
+
+.bm-track-cta-btn:hover {
+  background: rgba(16, 185, 129, 0.22);
+  color: #ffffff;
+  border-color: rgba(16, 185, 129, 0.95);
 }
 
 .bm-track-register-btn {
@@ -1625,6 +1801,10 @@ a {
     grid-template-columns: 1fr;
   }
 
+  .bm-track-grid-steps {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+
   .bm-track-grid-levels {
     grid-template-columns: repeat(2, minmax(220px, 1fr));
   }
@@ -1726,6 +1906,24 @@ a {
 
   .bm-track-grid-levels {
     grid-template-columns: 1fr;
+  }
+
+  .bm-track-grid-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .bm-track-competition-card,
+  .bm-track-level-card,
+  .bm-track-step-card,
+  .bm-track-learn-card,
+  .bm-track-cta-card,
+  .bm-track-panel {
+    padding: 18px;
+  }
+
+  .bm-track-cta-btn {
+    width: 100%;
+    text-align: center;
   }
 
   .bm-track-head-message {
