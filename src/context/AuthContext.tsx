@@ -47,6 +47,8 @@ interface SessionPayload {
 
 const SESSION_KEY = 'polytech-it-arena-auth-session'
 const LOCAL_TOKEN = '__local_guest__'
+const GUEST_IS_ADMIN =
+  import.meta.env.DEV || import.meta.env.VITE_GUEST_ADMIN === 'true'
 
 const levelPoints: Record<Level, number> = {
   Junior: 60,
@@ -125,7 +127,7 @@ const createLocalGuestUser = (): UserProfile => ({
   telegramContact: null,
   telegramLinked: false,
   telegramUsername: null,
-  role: 'USER',
+  role: GUEST_IS_ADMIN ? 'ADMIN' : 'USER',
   totalPoints: 0,
   registrations: [],
 })

@@ -27,6 +27,9 @@ export default function App() {
 
           <Route element={<ProtectedRoute />}>
             <Route path="/home" element={<HomePage />} />
+            <Route path="/live" element={<HomePage />} />
+            <Route path="/home/classic" element={<Navigate to="/home" replace />} />
+            <Route path="/home/live" element={<Navigate to="/live" replace />} />
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/archive" element={<ArchivePage />} />

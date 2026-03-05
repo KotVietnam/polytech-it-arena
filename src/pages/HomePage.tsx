@@ -1,15 +1,13 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { apiCreateTelegramLink } from '../api/client'
 import { UserControls } from '../components/UserControls'
 import { useAuth } from '../context/AuthContext'
 import { trackNames } from '../data/tracks'
 import { useEvents } from '../hooks/useEvents'
 import {
-  formatDateTime,
   getCurrentEvent,
-  getEventEndDate,
   getNearestEvent,
   sortEventsByDate,
 } from '../utils/date'
@@ -50,6 +48,8 @@ interface RotatingHeadline {
   holdMs: number
 }
 
+type UiTheme = 'red' | 'blue'
+
 const TYPE_SPEED_MS = 46
 const DELETE_SPEED_MS = 28
 const SWITCH_DELAY_MS = 220
@@ -66,8 +66,9 @@ const CYBER_LINE_2_ROTATION = [
 
 const fallbackEventTitle =
   'БЛИЖАЙШЕЕ СОБЫТИЕ'
-const fallbackEventDate =
-  'ДАТА УТОЧНЯЕТСЯ'
+const fallbackEventDate = 'ДАТА УТОЧНЯЕТСЯ'
+const activeEventLabel = 'СЕЙЧАС ИДЁТ'
+const liveHeadlineWatchText = 'СМОТРЕТЬ >>'
 
 const scheduleLinkText =
   'УЗНАТЬ РАСПИСАНИЕ >>'
@@ -87,16 +88,35 @@ const addressValue =
   'IT Hub, Тастак-1, 1Б'
 
 const profileLabel = 'Открыть профиль пользователя'
+const liveModeTitle = 'СОРЕВНОВАНИЕ ИДЁТ ПРЯМО СЕЙЧАС'
+const liveModeClassicText = 'ПЕРЕЙТИ НА ГЛАВНУЮ >>'
 
-const liveNowLabel = 'СЕЙЧАС ИДЁТ'
-const liveNowActionText = 'СЛЕДИТЬ ЗА СОБЫТИЕМ'
+const resolveThemeFromDocument = (): UiTheme => {
+  if (typeof document === 'undefined') {
+    return 'red'
+  }
+  return document.documentElement.getAttribute('data-theme') === 'blue' ? 'blue' : 'red'
+}
 
-const eventRangeTimeFormatter = new Intl.DateTimeFormat('ru-RU', {
+const eventHeadlineDateFormatter = new Intl.DateTimeFormat('ru-RU', {
+  day: '2-digit',
+  month: 'long',
+})
+
+const eventHeadlineTimeFormatter = new Intl.DateTimeFormat('ru-RU', {
   hour: '2-digit',
   minute: '2-digit',
 })
 
+const formatEventHeadlineDate = (isoDate: string) => {
+  const parsed = new Date(isoDate)
+  return `${eventHeadlineDateFormatter.format(parsed).toUpperCase()} В ${eventHeadlineTimeFormatter.format(parsed)}`
+}
+
 export const HomePage = () => {
+  const location = useLocation()
+  const isClassicCopy = location.pathname === '/live'
+  const [activeTheme, setActiveTheme] = useState<UiTheme>(resolveThemeFromDocument)
   const { user, isGuest, token, refreshMe } = useAuth()
   const { events } = useEvents()
   const nearestEvent = getNearestEvent(sortEventsByDate(events))
@@ -105,16 +125,49 @@ export const HomePage = () => {
     () => getCurrentEvent(events, new Date(timelineTick)),
     [events, timelineTick],
   )
-  const currentEventMeta = useMemo(() => {
-    if (!currentEvent) {
-      return ''
-    }
-
-    const endsAt = eventRangeTimeFormatter.format(getEventEndDate(currentEvent))
-    return `${trackNames[currentEvent.track]} / ${currentEvent.level} / ${formatDateTime(currentEvent.date)} - ${endsAt}`
-  }, [currentEvent])
   const isAdmin = user?.role === 'ADMIN'
   const shouldShowAdminTelegramAuthorize = Boolean(isAdmin && !isGuest && !user?.telegramLinked)
+  const liveScoreSeed = useMemo(() => {
+    if (!currentEvent) {
+      return 0
+    }
+
+    return Array.from(`${currentEvent.id}|${currentEvent.date}`).reduce(
+      (acc, char) => acc + char.charCodeAt(0),
+      0,
+    )
+  }, [currentEvent])
+  const blueTeamScore = 80 + (liveScoreSeed % 170)
+  const redTeamScore = 75 + ((liveScoreSeed * 7) % 170)
+  const orderedLiveTeams = useMemo(
+    () =>
+      activeTheme === 'red'
+        ? [
+            {
+              id: 'blue',
+              title: 'BLUE TEAM',
+              score: blueTeamScore,
+            },
+            {
+              id: 'red',
+              title: 'RED TEAM',
+              score: redTeamScore,
+            },
+          ]
+        : [
+            {
+              id: 'red',
+              title: 'RED TEAM',
+              score: redTeamScore,
+            },
+            {
+              id: 'blue',
+              title: 'BLUE TEAM',
+              score: blueTeamScore,
+            },
+          ],
+    [activeTheme, blueTeamScore, redTeamScore],
+  )
 
   const [headlineIndex, setHeadlineIndex] = useState(0)
   const [phase, setPhase] = useState<RotationPhase>('typing')
@@ -125,12 +178,16 @@ export const HomePage = () => {
   const [adminTelegramAuthorizeError, setAdminTelegramAuthorizeError] = useState('')
 
   const rotatingHeadlines = useMemo<RotatingHeadline[]>(() => {
-    const eventLine1 = nearestEvent
-      ? `${trackNames[nearestEvent.track].toUpperCase()} ${nearestEvent.level.toUpperCase()}`
-      : fallbackEventTitle
-    const eventLine2 = nearestEvent
-      ? formatDateTime(nearestEvent.date).toUpperCase()
-      : fallbackEventDate
+    let eventLine1 = fallbackEventTitle
+    let eventLine2 = fallbackEventDate
+
+    if (currentEvent) {
+      eventLine1 = activeEventLabel
+      eventLine2 = currentEvent.title.toUpperCase()
+    } else if (nearestEvent) {
+      eventLine1 = `${trackNames[nearestEvent.track].toUpperCase()} ${nearestEvent.level.toUpperCase()}`
+      eventLine2 = formatEventHeadlineDate(nearestEvent.date)
+    }
 
     const cyberItems: RotatingHeadline[] = CYBER_LINE_2_ROTATION.map((line2) => ({
       kind: 'cyber',
@@ -148,9 +205,11 @@ export const HomePage = () => {
         holdMs: EVENT_HOLD_MS,
       },
     ]
-  }, [nearestEvent])
+  }, [currentEvent, nearestEvent])
 
   const activeHeadline = rotatingHeadlines[headlineIndex]
+  const isEventHeadlineActive = activeHeadline.kind === 'event'
+  const shouldShowLiveWatchButton = isEventHeadlineActive && Boolean(currentEvent)
   const shouldTypePrimaryLine =
     activeHeadline.kind === 'cyber' && headlineIndex === 0
   const maxLength =
@@ -171,6 +230,34 @@ export const HomePage = () => {
     }, 30_000)
 
     return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return
+    }
+
+    const root = document.documentElement
+    const syncTheme = () => {
+      setActiveTheme(resolveThemeFromDocument())
+    }
+
+    syncTheme()
+
+    const observer = new MutationObserver((records) => {
+      if (records.some((record) => record.type === 'attributes')) {
+        syncTheme()
+      }
+    })
+
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    })
+
+    return () => {
+      observer.disconnect()
+    }
   }, [])
 
   useEffect(() => {
@@ -274,6 +361,41 @@ export const HomePage = () => {
     }
   }
 
+  if (currentEvent && !isClassicCopy) {
+
+    return (
+      <div className="bm-page relative">
+        <div className="bm-wrapper bm-live-event-shell relative z-10">
+          <section className="bm-live-event-hero">
+            <h1 className="bm-h1 bm-live-event-title">{liveModeTitle}</h1>
+            <h2 className="bm-h1 bm-h1-outline bm-live-event-subtitle">{currentEvent.title}</h2>
+
+            <div className="bm-live-event-actions">
+              <Link to="/live" className="bm-live-event-btn mono">
+                {liveModeClassicText}
+              </Link>
+            </div>
+          </section>
+
+          <section className="bm-live-event-panel">
+            <div className="bm-live-scoreboard" aria-label="Очки команд">
+              {orderedLiveTeams.map((team) => (
+                <article
+                  key={team.id}
+                  className={`bm-live-team-card bm-live-team-card-${team.id}`}
+                >
+                  <p className="bm-live-team-name mono">{team.title}</p>
+                  <p className="bm-live-team-score mono">{team.score} PTS</p>
+                </article>
+              ))}
+            </div>
+
+          </section>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="bm-page relative">
       <div className="bm-wrapper relative z-10">
@@ -292,6 +414,11 @@ export const HomePage = () => {
               {visibleLine1}
             </h1>
             <h1 className="bm-h1 bm-h1-outline">{visibleLine2}</h1>
+            {shouldShowLiveWatchButton ? (
+              <Link to="/home" className="bm-headline-watch mono">
+                {liveHeadlineWatchText}
+              </Link>
+            ) : null}
           </div>
 
           <div className="bm-header-actions">
@@ -333,18 +460,6 @@ export const HomePage = () => {
           </div>
 
         </header>
-
-        {currentEvent ? (
-          <section className="bm-live-now" aria-live="polite">
-            <p className="bm-live-now-label mono">{liveNowLabel}</p>
-            <h2 className="bm-live-now-title">{currentEvent.title}</h2>
-            <p className="bm-live-now-meta mono">{currentEventMeta}</p>
-            <p className="bm-live-now-location mono">{currentEvent.location}</p>
-            <Link to="/calendar" className="bm-live-now-btn mono">
-              {liveNowActionText}
-            </Link>
-          </section>
-        ) : null}
 
         <div className="bm-competencies">
           {cards.map((card) => (
