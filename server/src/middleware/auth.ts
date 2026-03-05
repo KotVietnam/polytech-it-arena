@@ -36,6 +36,27 @@ export const requireAuth: RequestHandler = (req, res, next) => {
   }
 }
 
+export const optionalAuth: RequestHandler = (req, _res, next) => {
+  const token = parseBearerToken(req.headers.authorization)
+  if (!token) {
+    next()
+    return
+  }
+
+  try {
+    const payload = verifyAuthToken(token)
+    req.authUser = {
+      id: payload.sub,
+      username: payload.username,
+      role: payload.role,
+    }
+  } catch {
+    // ignore invalid token for optional auth flows
+  }
+
+  next()
+}
+
 export const requireAdmin: RequestHandler = (req, res, next) => {
   if (!req.authUser) {
     res.status(401).json({ error: 'Unauthorized' })

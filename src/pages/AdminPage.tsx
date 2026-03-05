@@ -13,7 +13,6 @@ import {
 } from '../api/client'
 import { UserControls } from '../components/UserControls'
 import { useAuth } from '../context/AuthContext'
-import { events as fallbackEvents } from '../data/events'
 import { trackNames } from '../data/tracks'
 import type { ArchiveItem, EventItem, Level, TrackId, UserRole } from '../types'
 import { formatDateTime, getNearestEvent, sortEventsByDate } from '../utils/date'
@@ -126,11 +125,7 @@ export const AdminPage = () => {
         apiGetArchives(),
       ])
 
-      setEvents(
-        eventsResponse.items.length
-          ? sortEventsByDate(eventsResponse.items)
-          : sortEventsByDate(fallbackEvents),
-      )
+      setEvents(sortEventsByDate(eventsResponse.items))
       setArchives(archivesResponse.items)
 
       if (canManage && token) {
@@ -149,7 +144,7 @@ export const AdminPage = () => {
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'Ошибка загрузки'
       if (isViewMode) {
-        setEvents(sortEventsByDate(fallbackEvents))
+        setEvents([])
         setArchives([])
         setUsers([])
       }

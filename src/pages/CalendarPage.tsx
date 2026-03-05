@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { apiCreateEventRegistration } from '../api/client'
 import { UserControls } from '../components/UserControls'
 import { useAuth } from '../context/AuthContext'
-import { testCalendarEvents } from '../data/testEvents'
 import { trackNames } from '../data/tracks'
 import { useEvents } from '../hooks/useEvents'
 import type { Level, TrackId } from '../types'
@@ -18,7 +18,6 @@ interface TimelineItem {
   status: TimelineStatus
   track: TrackId
   level: Level
-  registrationLink: string | null
 }
 
 const primaryTitle = 'КАЛЕНДАРЬ СОБЫТИЙ'
@@ -34,11 +33,19 @@ const registerDoneText = 'ЗАПИСАНО'
 
 const registerModalTitle = 'ЗАПИСЬ НА СОРЕВНОВАНИЕ'
 const registerModalHintGuest =
-  'Для гостевого режима: отсканируй QR-код или перейди по ссылке, чтобы открыть форму записи.'
-const registerModalHintUser =
-  'Для авторизованного пользователя: подтверди запись кнопкой ниже.'
-const openLinkText = 'ПЕРЕЙТИ ПО ССЫЛКЕ'
+  'Гостевой режим: отсканируйте QR, перейдите в Telegram-бота и отправьте данные участника.'
+const registerModalHintTelegramNotLinked =
+  'Для авторизованных пользователей: откройте бота, отправьте команду /auth и завершите привязку.'
+const registerModalHintTelegramLinked =
+  'Telegram привязан. Подтверди запись, и бот отправит уведомление автоматически.'
+const guestBotInstruction =
+  'В боте отправьте /start, затем одним сообщением укажите: 1. ФИО 2. Номер телефона.'
+const guestOpenTelegramText = 'ПЕРЕЙТИ В TELEGRAM'
+const guestRefreshQrText = 'ОБНОВИТЬ QR'
+const guestQrLoadingText = 'ПОДГОТАВЛИВАЕМ QR КОД...'
 const confirmRegisterText = 'ПОДТВЕРДИТЬ ЗАПИСЬ'
+const confirmRegisterLoadingText = 'ОТПРАВКА...'
+const openTelegramLinkText = 'ПРИВЯЗАТЬ TELEGRAM (/AUTH)'
 const closeModalText = 'ЗАКРЫТЬ'
 
 const TYPE_SPEED_MS = 46
@@ -63,20 +70,8 @@ const statusLabelMap: Record<TimelineStatus, string> = {
 const toTimeLabel = (isoDate: string) =>
   dateTimeShortFormatter.format(new Date(isoDate)).replace(',', '')
 
-const getRegistrationLink = (eventId: string, registrationLink: string | null) => {
-  if (registrationLink && registrationLink.trim()) {
-    return registrationLink.trim()
-  }
-
-  if (typeof window === 'undefined') {
-    return `/calendar?register=${encodeURIComponent(eventId)}`
-  }
-
-  return `${window.location.origin}/calendar?register=${encodeURIComponent(eventId)}`
-}
-
 export const CalendarPage = () => {
-  const { user, isGuest, registerTrack } = useAuth()
+  const { user, isGuest, token, registerTrack, refreshMe } = useAuth()
   const { events } = useEvents()
   const [subtitleIndex, setSubtitleIndex] = useState(0)
   const [phase, setPhase] = useState<'typing' | 'hold' | 'deleting'>('typing')
@@ -84,14 +79,16 @@ export const CalendarPage = () => {
   const [referenceTime] = useState(() => Date.now())
   const [registeredEventIds, setRegisteredEventIds] = useState<Set<string>>(() => new Set())
   const [registerModalItem, setRegisterModalItem] = useState<TimelineItem | null>(null)
+  const [registrationError, setRegistrationError] = useState('')
+  const [registrationInfo, setRegistrationInfo] = useState('')
+  const [telegramLink, setTelegramLink] = useState<string | null>(null)
+  const [guestTelegramLink, setGuestTelegramLink] = useState<string | null>(null)
+  const [guestQrCodeUrl, setGuestQrCodeUrl] = useState<string | null>(null)
+  const [isGuestLinkLoading, setIsGuestLinkLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const timelineItems = useMemo<TimelineItem[]>(() => {
-    const mergedEventsById = new Map<string, (typeof events)[number]>()
-    for (const item of [...events, ...testCalendarEvents]) {
-      mergedEventsById.set(item.id, item)
-    }
-
-    const sorted = sortEventsByDate(Array.from(mergedEventsById.values()))
+    const sorted = sortEventsByDate(events)
     const nearestUpcomingIndex = sorted.findIndex(
       (eventItem) => new Date(eventItem.date).getTime() >= referenceTime,
     )
@@ -116,7 +113,6 @@ export const CalendarPage = () => {
         status,
         track: eventItem.track,
         level: eventItem.level,
-        registrationLink: eventItem.registrationLink ?? null,
       }
     })
   }, [events, referenceTime])
@@ -146,34 +142,140 @@ export const CalendarPage = () => {
     return () => clearTimeout(timer)
   }, [activeSubtitle.length, charCount, phase])
 
+  const closeRegisterModal = () => {
+    setRegisterModalItem(null)
+    setRegistrationError('')
+    setRegistrationInfo('')
+    setTelegramLink(null)
+    setGuestTelegramLink(null)
+    setGuestQrCodeUrl(null)
+    setIsGuestLinkLoading(false)
+    setIsSubmitting(false)
+  }
+
+  const requestGuestTelegramLink = async (eventId: string) => {
+    setIsGuestLinkLoading(true)
+    setRegistrationError('')
+    setRegistrationInfo('')
+    setGuestTelegramLink(null)
+    setGuestQrCodeUrl(null)
+
+    try {
+      const response = await apiCreateEventRegistration(eventId)
+      if (response.ok) {
+        setRegistrationInfo('Запись уже была подтверждена ранее.')
+        return
+      }
+
+      if (!response.guestTelegramLink) {
+        throw new Error(response.error || 'Не удалось подготовить Telegram QR код.')
+      }
+
+      setGuestTelegramLink(response.guestTelegramLink)
+      setGuestQrCodeUrl(response.guestQrCodeUrl ?? null)
+      setRegistrationInfo('Откройте бота и отправьте данные участника.')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось подготовить Telegram QR код.'
+      setRegistrationError(message)
+    } finally {
+      setIsGuestLinkLoading(false)
+    }
+  }
+
   const handleRegisterClick = (item: TimelineItem) => {
     if (registeredEventIds.has(item.id) || item.status === 'completed') {
       return
     }
 
+    setRegistrationError('')
+    setRegistrationInfo('')
+    setTelegramLink(null)
+    setGuestTelegramLink(null)
+    setGuestQrCodeUrl(null)
+    setIsGuestLinkLoading(false)
+    setIsSubmitting(false)
     setRegisterModalItem(item)
+    if (isGuest) {
+      void requestGuestTelegramLink(item.id)
+    } else {
+      void refreshMe().catch(() => undefined)
+    }
   }
 
-  const handleConfirmRegister = () => {
-    if (!registerModalItem || isGuest) {
+  const handleConfirmRegister = async () => {
+    if (!registerModalItem || isSubmitting) {
+      return
+    }
+    if (isGuest) {
       return
     }
 
-    registerTrack(registerModalItem.track, registerModalItem.level)
-    setRegisteredEventIds((previous) => {
-      const next = new Set(previous)
-      next.add(registerModalItem.id)
-      return next
-    })
-    setRegisterModalItem(null)
+    setIsSubmitting(true)
+    setRegistrationError('')
+    setRegistrationInfo('')
+    setTelegramLink(null)
+
+    try {
+      if (!token) {
+        throw new Error('Требуется авторизация')
+      }
+
+      const response = await apiCreateEventRegistration(registerModalItem.id, undefined, token)
+      if (!response.ok) {
+        if (response.telegramLink) {
+          setTelegramLink(response.telegramLink)
+          setRegistrationInfo(
+            'Открылся Telegram бот. Нажмите Start и отправьте команду /auth, затем снова подтвердите запись.',
+          )
+          window.open(response.telegramLink, '_blank', 'noopener,noreferrer')
+          return
+        }
+        throw new Error(response.error || 'Требуется привязка Telegram')
+      }
+
+      registerTrack(registerModalItem.track, registerModalItem.level)
+
+      setRegisteredEventIds((previous) => {
+        const next = new Set(previous)
+        next.add(registerModalItem.id)
+        return next
+      })
+
+      const notificationStatus = response.item.notification.status
+      if (notificationStatus === 'sent') {
+        setRegistrationInfo('Запись подтверждена. Бот отправил уведомление в Telegram.')
+      } else if (notificationStatus === 'skipped') {
+        setRegistrationInfo(
+          'Запись подтверждена. Уведомления будут активны после настройки Telegram бота.',
+        )
+      } else {
+        setRegistrationInfo(
+          'Запись подтверждена, но сообщение в Telegram не отправлено. Попробуйте еще раз.',
+        )
+      }
+
+      setTimeout(() => {
+        closeRegisterModal()
+      }, 1000)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось подтвердить запись.'
+      setRegistrationError(message)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const registrationUrl = registerModalItem
-    ? getRegistrationLink(registerModalItem.id, registerModalItem.registrationLink)
-    : ''
-  const qrCodeUrl = registrationUrl
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(registrationUrl)}`
-    : ''
+  const modalHint = isGuest
+    ? registerModalHintGuest
+    : user?.telegramLinked
+      ? registerModalHintTelegramLinked
+      : registerModalHintTelegramNotLinked
+
+  const confirmButtonText = isSubmitting
+    ? confirmRegisterLoadingText
+    : !isGuest && !user?.telegramLinked
+      ? openTelegramLinkText
+      : confirmRegisterText
 
   return (
     <div className="bm-tl-page">
@@ -242,7 +344,7 @@ export const CalendarPage = () => {
           <div
             className="bm-tl-modal-backdrop"
             role="presentation"
-            onClick={() => setRegisterModalItem(null)}
+            onClick={closeRegisterModal}
           >
             <div
               className="bm-tl-modal"
@@ -256,49 +358,94 @@ export const CalendarPage = () => {
                 <button
                   type="button"
                   className="bm-tl-modal-close mono"
-                  onClick={() => setRegisterModalItem(null)}
+                  onClick={closeRegisterModal}
                 >
                   {closeModalText}
                 </button>
               </div>
 
               <p className="bm-tl-modal-event">{registerModalItem.title}</p>
-              <p className="bm-tl-modal-hint">
-                {isGuest ? registerModalHintGuest : registerModalHintUser}
-              </p>
+              <p className="bm-tl-modal-hint">{modalHint}</p>
 
               <div className="bm-tl-modal-content">
-                {isGuest ? (
-                  <img
-                    src={qrCodeUrl}
-                    alt={`QR для записи на событие ${registerModalItem.title}`}
-                    className="bm-tl-modal-qr"
-                  />
-                ) : (
-                  <div className="bm-tl-modal-qr bm-tl-modal-qr-placeholder mono">
-                    AUTH MODE
-                  </div>
-                )}
-
                 <div className="bm-tl-modal-actions">
                   {isGuest ? (
+                    <>
+                      {isGuestLinkLoading ? (
+                        <p className="bm-tl-modal-linked mono">{guestQrLoadingText}</p>
+                      ) : guestQrCodeUrl ? (
+                        <img
+                          src={guestQrCodeUrl}
+                          alt="QR код для перехода в Telegram бота"
+                          className="bm-tl-modal-qr"
+                        />
+                      ) : (
+                        <p className="bm-tl-modal-linked mono">QR код пока недоступен</p>
+                      )}
+
+                      <p className="bm-tl-modal-linked mono">{guestBotInstruction}</p>
+
+                      {guestTelegramLink ? (
+                        <a
+                          href={guestTelegramLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="bm-tl-modal-link mono"
+                        >
+                          {guestOpenTelegramText}
+                        </a>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        className="bm-tl-modal-confirm mono"
+                        onClick={() => {
+                          if (registerModalItem) {
+                            void requestGuestTelegramLink(registerModalItem.id)
+                          }
+                        }}
+                        disabled={isGuestLinkLoading}
+                      >
+                        {guestRefreshQrText}
+                      </button>
+                    </>
+                  ) : (
+                    <p className="bm-tl-modal-linked mono">
+                      {user?.telegramLinked
+                        ? `TELEGRAM ПРИВЯЗАН: ${user.telegramUsername ? `@${user.telegramUsername.replace(/^@/, '')}` : 'CHAT ID'}`
+                        : 'TELEGRAM НЕ ПРИВЯЗАН'}
+                    </p>
+                  )}
+
+                  {registrationError ? (
+                    <p className="bm-tl-modal-error mono">{registrationError}</p>
+                  ) : null}
+                  {registrationInfo ? (
+                    <p className="bm-tl-modal-success mono">{registrationInfo}</p>
+                  ) : null}
+                  {telegramLink ? (
                     <a
-                      href={registrationUrl}
+                      href={telegramLink}
                       target="_blank"
                       rel="noreferrer"
                       className="bm-tl-modal-link mono"
                     >
-                      {openLinkText}
+                      ОТКРЫТЬ БОТА
                     </a>
-                  ) : (
+                  ) : null}
+
+                  {!isGuest ? (
                     <button
                       type="button"
                       className="bm-tl-modal-confirm mono"
-                      onClick={handleConfirmRegister}
+                      onClick={() => {
+                        void handleConfirmRegister()
+                      }}
+                      disabled={isSubmitting}
                     >
-                      {confirmRegisterText}
+                      {confirmButtonText}
                     </button>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>

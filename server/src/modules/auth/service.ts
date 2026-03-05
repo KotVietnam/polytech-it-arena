@@ -1,4 +1,5 @@
 import { Role } from '@prisma/client'
+import { env } from '../../config/env.js'
 import { prisma } from '../../db.js'
 import { authenticateUser } from './provider.js'
 import { signAuthToken } from './token.js'
@@ -6,22 +7,40 @@ import { signAuthToken } from './token.js'
 export interface AuthUserDto {
   id: string
   username: string
+  firstName: string | null
+  lastName: string | null
   displayName: string | null
   email: string | null
+  phoneNumber: string | null
+  telegramContact: string | null
+  telegramLinked: boolean
+  telegramUsername: string | null
   role: Role
 }
 
 const toAuthUserDto = (user: {
   id: string
   username: string
+  firstName: string | null
+  lastName: string | null
   displayName: string | null
   email: string | null
+  phoneNumber: string | null
+  telegramContact: string | null
+  telegramChatId: string | null
+  telegramUsername: string | null
   role: Role
 }): AuthUserDto => ({
   id: user.id,
   username: user.username,
+  firstName: user.firstName,
+  lastName: user.lastName,
   displayName: user.displayName,
   email: user.email,
+  phoneNumber: user.phoneNumber,
+  telegramContact: user.telegramContact,
+  telegramLinked: Boolean(user.telegramChatId),
+  telegramUsername: user.telegramUsername,
   role: user.role,
 })
 
@@ -38,24 +57,36 @@ export const loginWithDirectory = async (username: string, password: string) => 
   })
 
   const resolvedRole =
-    identity.roleHint === Role.ADMIN
-      ? Role.ADMIN
-      : existing?.role === Role.ADMIN
+    env.AUTH_MODE === 'keycloak'
+      ? identity.roleHint === Role.ADMIN
         ? Role.ADMIN
         : Role.USER
+      : identity.roleHint === Role.ADMIN
+        ? Role.ADMIN
+        : existing?.role === Role.ADMIN
+          ? Role.ADMIN
+          : Role.USER
 
   const user = await prisma.user.upsert({
     where: { username: identity.username },
     create: {
       username: identity.username,
+      firstName: identity.firstName,
+      lastName: identity.lastName,
       displayName: identity.displayName,
       email: identity.email,
+      phoneNumber: identity.phoneNumber,
+      telegramContact: identity.telegramContact,
       role: resolvedRole,
       lastLoginAt: new Date(),
     },
     update: {
+      firstName: identity.firstName,
+      lastName: identity.lastName,
       displayName: identity.displayName,
       email: identity.email,
+      phoneNumber: identity.phoneNumber,
+      telegramContact: identity.telegramContact,
       role: resolvedRole,
       lastLoginAt: new Date(),
     },
@@ -79,8 +110,14 @@ export const getUserById = async (id: string) => {
     select: {
       id: true,
       username: true,
+      firstName: true,
+      lastName: true,
       displayName: true,
       email: true,
+      phoneNumber: true,
+      telegramContact: true,
+      telegramChatId: true,
+      telegramUsername: true,
       role: true,
     },
   })

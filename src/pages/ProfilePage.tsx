@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { useAuth } from '../context/AuthContext'
-import { events } from '../data/events'
 import { trackNames } from '../data/tracks'
+import { useEvents } from '../hooks/useEvents'
 import type { TrackId } from '../types'
 import { formatDateTime, getNearestEvent, sortEventsByDate } from '../utils/date'
 
@@ -18,9 +18,24 @@ const HOLD_SPEED_MS = 2000
 const SWITCH_DELAY_MS = 220
 
 const trackOrder: TrackId[] = ['cybersecurity', 'networks', 'devops', 'sysadmin']
+const emptyContactValue = 'НЕ УКАЗАНО'
+
+const normalizeTelegramHandle = (value: string | null | undefined) => {
+  const trimmed = value?.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  if (/^-?\d+$/.test(trimmed)) {
+    return trimmed
+  }
+
+  return trimmed.startsWith('@') ? trimmed : `@${trimmed}`
+}
 
 export const ProfilePage = () => {
   const { user, isGuest } = useAuth()
+  const { events } = useEvents()
   const [subtitleIndex, setSubtitleIndex] = useState(0)
   const [phase, setPhase] = useState<'typing' | 'hold' | 'deleting'>('typing')
   const [charCount, setCharCount] = useState(0)
@@ -51,6 +66,14 @@ export const ProfilePage = () => {
 
   const profileUser = user ?? {
     username: 'GUEST',
+    firstName: null,
+    lastName: null,
+    displayName: null,
+    email: null,
+    phoneNumber: null,
+    telegramContact: null,
+    telegramLinked: false,
+    telegramUsername: null,
     totalPoints: 0,
     registrations: [],
     id: 'guest',
@@ -60,6 +83,15 @@ export const ProfilePage = () => {
   const avatarLetter = profileUser.username.trim().charAt(0).toUpperCase() || '?'
   const lastRegistration = profileUser.registrations[0] ?? null
   const nearestEvent = getNearestEvent(sortEventsByDate(events))
+  const fullName =
+    [profileUser.firstName, profileUser.lastName].filter(Boolean).join(' ').trim() ||
+    profileUser.displayName ||
+    profileUser.username
+  const keycloakTelegram = normalizeTelegramHandle(profileUser.telegramContact)
+  const linkedTelegram = normalizeTelegramHandle(profileUser.telegramUsername)
+  const profileTelegram = keycloakTelegram ?? linkedTelegram ?? emptyContactValue
+  const profilePhone = profileUser.phoneNumber?.trim() || emptyContactValue
+  const profileEmail = profileUser.email?.trim() || emptyContactValue
 
   const averagePoints = profileUser.registrations.length
     ? Math.round(profileUser.totalPoints / profileUser.registrations.length)
@@ -112,6 +144,31 @@ export const ProfilePage = () => {
           </div>
 
         </header>
+
+        <section className="bm-track-section bm-profile-contact-section">
+          <h2 className="bm-track-section-title mono">ПРОФИЛЬ И КОНТАКТЫ</h2>
+          <div className="bm-profile-contact-grid">
+            <article className="bm-profile-contact-card">
+              <p className="bm-profile-contact-label mono">ИМЯ И ФАМИЛИЯ</p>
+              <p className="bm-profile-contact-value">{fullName}</p>
+            </article>
+
+            <article className="bm-profile-contact-card">
+              <p className="bm-profile-contact-label mono">EMAIL</p>
+              <p className="bm-profile-contact-value">{profileEmail}</p>
+            </article>
+
+            <article className="bm-profile-contact-card">
+              <p className="bm-profile-contact-label mono">ТЕЛЕФОН</p>
+              <p className="bm-profile-contact-value">{profilePhone}</p>
+            </article>
+
+            <article className="bm-profile-contact-card">
+              <p className="bm-profile-contact-label mono">TELEGRAM</p>
+              <p className="bm-profile-contact-value">{profileTelegram}</p>
+            </article>
+          </div>
+        </section>
 
         <section className="bm-profile-stats-grid">
           <article className="bm-profile-stat-card">

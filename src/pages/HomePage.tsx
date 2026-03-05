@@ -1,11 +1,18 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { apiCreateTelegramLink } from '../api/client'
 import { UserControls } from '../components/UserControls'
 import { useAuth } from '../context/AuthContext'
 import { trackNames } from '../data/tracks'
 import { useEvents } from '../hooks/useEvents'
-import { formatDateTime, getNearestEvent, sortEventsByDate } from '../utils/date'
+import {
+  formatDateTime,
+  getCurrentEvent,
+  getEventEndDate,
+  getNearestEvent,
+  sortEventsByDate,
+} from '../utils/date'
 
 const cards = [
   {
@@ -66,6 +73,10 @@ const scheduleLinkText =
   'УЗНАТЬ РАСПИСАНИЕ >>'
 const archiveLinkText = 'АРХИВ ИВЕНТОВ >>'
 const adminLinkText = 'ADMIN PANEL >>'
+const adminTelegramAuthorizeText = 'АВТОРИЗОВАТЬ TELEGRAM >>'
+const adminTelegramAuthorizeLoadingText = 'ОТКРЫВАЕМ БОТА...'
+const adminTelegramAuthorizeSuccessText =
+  'Ссылка открыта. Нажмите Start и отправьте /auth в боте. Кнопка исчезнет после привязки.'
 
 const telegramLabel = 'ТЕЛЕГРАМ'
 const telegramValue = '@POLYETCH_IT_ARENA'
@@ -77,16 +88,41 @@ const addressValue =
 
 const profileLabel = 'Открыть профиль пользователя'
 
+const liveNowLabel = 'СЕЙЧАС ИДЁТ'
+const liveNowActionText = 'СЛЕДИТЬ ЗА СОБЫТИЕМ'
+
+const eventRangeTimeFormatter = new Intl.DateTimeFormat('ru-RU', {
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
 export const HomePage = () => {
-  const { user, isGuest } = useAuth()
+  const { user, isGuest, token, refreshMe } = useAuth()
   const { events } = useEvents()
   const nearestEvent = getNearestEvent(sortEventsByDate(events))
+  const [timelineTick, setTimelineTick] = useState(() => Date.now())
+  const currentEvent = useMemo(
+    () => getCurrentEvent(events, new Date(timelineTick)),
+    [events, timelineTick],
+  )
+  const currentEventMeta = useMemo(() => {
+    if (!currentEvent) {
+      return ''
+    }
+
+    const endsAt = eventRangeTimeFormatter.format(getEventEndDate(currentEvent))
+    return `${trackNames[currentEvent.track]} / ${currentEvent.level} / ${formatDateTime(currentEvent.date)} - ${endsAt}`
+  }, [currentEvent])
   const isAdmin = user?.role === 'ADMIN'
+  const shouldShowAdminTelegramAuthorize = Boolean(isAdmin && !isGuest && !user?.telegramLinked)
 
   const [headlineIndex, setHeadlineIndex] = useState(0)
   const [phase, setPhase] = useState<RotationPhase>('typing')
   const [charCount, setCharCount] = useState(0)
   const [line1CharCount, setLine1CharCount] = useState(0)
+  const [isAuthorizingAdminTelegram, setIsAuthorizingAdminTelegram] = useState(false)
+  const [adminTelegramAuthorizeInfo, setAdminTelegramAuthorizeInfo] = useState('')
+  const [adminTelegramAuthorizeError, setAdminTelegramAuthorizeError] = useState('')
 
   const rotatingHeadlines = useMemo<RotatingHeadline[]>(() => {
     const eventLine1 = nearestEvent
@@ -128,6 +164,14 @@ export const HomePage = () => {
         ? activeHeadline.line1
         : activeHeadline.line1.slice(0, charCount)
   const visibleLine2 = activeHeadline.line2.slice(0, charCount)
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimelineTick(Date.now())
+    }, 30_000)
+
+    return () => clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     setHeadlineIndex(0)
@@ -194,6 +238,42 @@ export const HomePage = () => {
     rotatingHeadlines.length,
   ])
 
+  useEffect(() => {
+    if (!shouldShowAdminTelegramAuthorize) {
+      return
+    }
+
+    void refreshMe().catch(() => undefined)
+    const timer = setInterval(() => {
+      void refreshMe().catch(() => undefined)
+    }, 5000)
+
+    return () => clearInterval(timer)
+  }, [refreshMe, shouldShowAdminTelegramAuthorize])
+
+  const handleAdminTelegramAuthorize = async () => {
+    if (!token || isAuthorizingAdminTelegram) {
+      return
+    }
+
+    setIsAuthorizingAdminTelegram(true)
+    setAdminTelegramAuthorizeError('')
+    setAdminTelegramAuthorizeInfo('')
+
+    try {
+      const result = await apiCreateTelegramLink(token)
+      setAdminTelegramAuthorizeInfo(adminTelegramAuthorizeSuccessText)
+      window.open(result.url, '_blank', 'noopener,noreferrer')
+      await refreshMe().catch(() => undefined)
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Не удалось создать ссылку авторизации Telegram.'
+      setAdminTelegramAuthorizeError(message)
+    } finally {
+      setIsAuthorizingAdminTelegram(false)
+    }
+  }
+
   return (
     <div className="bm-page relative">
       <div className="bm-wrapper relative z-10">
@@ -221,14 +301,50 @@ export const HomePage = () => {
             <Link to="/archive" className="bm-header-action mono">
               {archiveLinkText}
             </Link>
+            {shouldShowAdminTelegramAuthorize ? (
+              <button
+                type="button"
+                className="bm-header-action bm-header-action-button mono"
+                onClick={() => {
+                  void handleAdminTelegramAuthorize()
+                }}
+                disabled={isAuthorizingAdminTelegram}
+              >
+                {isAuthorizingAdminTelegram
+                  ? adminTelegramAuthorizeLoadingText
+                  : adminTelegramAuthorizeText}
+              </button>
+            ) : null}
             {isAdmin ? (
               <Link to="/admin" className="bm-header-action mono">
                 {adminLinkText}
               </Link>
             ) : null}
+            {adminTelegramAuthorizeInfo ? (
+              <p className="bm-header-action-feedback bm-header-action-feedback-success mono">
+                {adminTelegramAuthorizeInfo}
+              </p>
+            ) : null}
+            {adminTelegramAuthorizeError ? (
+              <p className="bm-header-action-feedback bm-header-action-feedback-error mono">
+                {adminTelegramAuthorizeError}
+              </p>
+            ) : null}
           </div>
 
         </header>
+
+        {currentEvent ? (
+          <section className="bm-live-now" aria-live="polite">
+            <p className="bm-live-now-label mono">{liveNowLabel}</p>
+            <h2 className="bm-live-now-title">{currentEvent.title}</h2>
+            <p className="bm-live-now-meta mono">{currentEventMeta}</p>
+            <p className="bm-live-now-location mono">{currentEvent.location}</p>
+            <Link to="/calendar" className="bm-live-now-btn mono">
+              {liveNowActionText}
+            </Link>
+          </section>
+        ) : null}
 
         <div className="bm-competencies">
           {cards.map((card) => (

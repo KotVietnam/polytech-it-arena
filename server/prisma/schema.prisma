@@ -28,14 +28,23 @@ enum Level {
 model User {
   id              String         @id @default(uuid())
   username        String         @unique
+  firstName       String?
+  lastName        String?
   displayName     String?
   email           String?
+  phoneNumber     String?
+  telegramContact String?
+  telegramChatId  String?        @unique
+  telegramUsername String?
+  telegramLinkedAt DateTime?
   role            Role           @default(USER)
   lastLoginAt     DateTime?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   createdEvents   Event[]        @relation("EventCreatedBy")
   createdArchives ArchiveEntry[] @relation("ArchiveCreatedBy")
+  registrations   EventRegistration[]
+  telegramLinkTokens TelegramLinkToken[]
 }
 
 model Event {
@@ -53,9 +62,79 @@ model Event {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   archiveEntry ArchiveEntry?
+  registrations EventRegistration[]
+  guestTelegramTokens TelegramGuestRegistrationToken[]
 
   @@index([startsAt])
   @@index([track, level])
+}
+
+enum RegistrationContactType {
+  TELEGRAM
+  WHATSAPP
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+model EventRegistration {
+  id                   String                     @id @default(uuid())
+  eventId              String
+  userId               String?
+  contactType          RegistrationContactType
+  contactValue         String
+  guestFullName        String?
+  guestPhone           String?
+  guestTelegramTag     String?
+  notificationStatus   NotificationDeliveryStatus @default(PENDING)
+  notificationProvider String?
+  providerMessageId    String?
+  notificationError    String?
+  notifiedAt           DateTime?
+  reminderStatus       NotificationDeliveryStatus @default(PENDING)
+  reminderProvider     String?
+  reminderMessageId    String?
+  reminderError        String?
+  reminderSentAt       DateTime?
+  createdAt            DateTime                   @default(now())
+  event                Event                      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user                 User?                      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([eventId, createdAt])
+  @@index([userId, createdAt])
+  @@index([reminderStatus, reminderSentAt])
+  @@unique([eventId, userId])
+  @@unique([eventId, contactType, contactValue])
+}
+
+model TelegramLinkToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model TelegramGuestRegistrationToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  eventId   String
+  chatId    String?
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([chatId, expiresAt, usedAt])
+  @@index([eventId, createdAt])
 }
 
 model ArchiveEntry {

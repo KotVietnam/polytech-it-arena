@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import {
+  useCallback,
   createContext,
   useContext,
   useEffect,
@@ -35,6 +36,7 @@ interface AuthContextValue {
   ) => Promise<{ ok: true } | { ok: false; error: string }>
   authorizeAsGuest: () => void
   logout: () => void
+  refreshMe: () => Promise<void>
   registerTrack: (trackId: TrackId, level: Level) => void
 }
 
@@ -115,8 +117,14 @@ const mergeWithProgress = (serverUser: AuthUser, previous: UserProfile | null): 
 const createLocalGuestUser = (): UserProfile => ({
   id: 'guest-local',
   username: 'GUEST',
+  firstName: null,
+  lastName: null,
   displayName: 'Гостевой режим',
   email: null,
+  phoneNumber: null,
+  telegramContact: null,
+  telegramLinked: false,
+  telegramUsername: null,
   role: 'USER',
   totalPoints: 0,
   registrations: [],
@@ -207,6 +215,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setState(null)
   }
 
+  const refreshMe: AuthContextValue['refreshMe'] = useCallback(async () => {
+    const currentToken = state?.token
+    if (!currentToken || currentToken === LOCAL_TOKEN) {
+      return
+    }
+
+    const response = await apiGetMe(currentToken)
+    setState((previous) => {
+      if (!previous) {
+        return previous
+      }
+
+      return {
+        token: previous.token,
+        user: mergeWithProgress(response.user, previous.user),
+      }
+    })
+  }, [state?.token])
+
   const registerTrack = (trackId: TrackId, level: Level) => {
     setState((previous) => {
       const baseState: SessionPayload =
@@ -245,9 +272,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       authorize,
       authorizeAsGuest,
       logout,
+      refreshMe,
       registerTrack,
     }),
-    [state, isAuthLoading],
+    [state, isAuthLoading, refreshMe],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

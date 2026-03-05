@@ -17,12 +17,20 @@ export interface EventItem {
 }
 
 export type UserRole = 'USER' | 'ADMIN'
+export type RegistrationContactType = 'telegram' | 'whatsapp'
+export type NotificationSendStatus = 'sent' | 'failed' | 'skipped'
 
 export interface AuthUser {
   id: string
   username: string
+  firstName: string | null
+  lastName: string | null
   displayName: string | null
   email: string | null
+  phoneNumber: string | null
+  telegramContact: string | null
+  telegramLinked: boolean
+  telegramUsername: string | null
   role: UserRole
 }
 
@@ -35,6 +43,22 @@ export interface ArchiveItem {
   createdAt: string
   updatedAt: string
   event: EventItem
+}
+
+export interface EventRegistrationItem {
+  id: string
+  eventId: string
+  userId: string | null
+  contactType: RegistrationContactType
+  contactValue: string
+  guestFullName?: string | null
+  guestPhone?: string | null
+  guestTelegramTag?: string | null
+  notification: {
+    status: NotificationSendStatus
+    error: string | null
+  }
+  createdAt: string
 }
 
 export interface TrackLevelConfig {

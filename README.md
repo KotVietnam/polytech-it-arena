@@ -10,11 +10,17 @@
 - Терминальная авторизация на `/` с командами `help/login/auth`
 - Авторизация через backend:
   - `AUTH_MODE=ad` — проверка логина/пароля через Active Directory (LDAP)
+  - `AUTH_MODE=keycloak` — проверка логина/пароля через Keycloak (OIDC token endpoint)
   - `AUTH_MODE=mock` — локальный режим разработки
 - JWT-сессия на клиенте
 - Защищенные маршруты через роли (`USER` / `ADMIN`)
 - Соревнования загружаются из БД (вместо заглушек)
 - Архив соревнований загружается из БД
+- Регистрация на соревнование из календаря с сохранением в БД
+- Уведомления о регистрации через Telegram/WhatsApp ботов
+- Для авторизованных пользователей: одноразовая привязка Telegram через бота (`/start` deep link), далее авто-уведомления без повторной привязки
+- Для гостей: при регистрации сохраняются `ФИО`, `телефон`, `telegram tag`; админу приходит уведомление в Telegram
+- Авто-напоминание в Telegram за сутки до старта события
 - Встроенная admin-панель `/admin`:
   - создание/удаление соревнований
   - создание/удаление архивных записей
@@ -55,8 +61,19 @@ cp server/.env.example server/.env
 Заполните `server/.env`:
 - `DATABASE_URL` (по умолчанию `file:./dev.db`)
 - `JWT_SECRET`
-- режим `AUTH_MODE` (`ad` или `mock`)
+- режим `AUTH_MODE` (`ad`, `keycloak` или `mock`)
 - при `AUTH_MODE=ad`: `AD_URL`, `AD_BASE_DN`, `AD_BIND_*`, `AD_ADMIN_GROUP_DN`
+- при `AUTH_MODE=keycloak`: `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET` и один из вариантов:
+  - `KEYCLOAK_ISSUER_URL` (полный issuer вида `https://host/realms/<realm>`)
+  - либо `KEYCLOAK_BASE_URL` + `KEYCLOAK_REALM` (backend попробует пути `/realms/<realm>` и `/auth/realms/<realm>`)
+- для уведомлений:
+  - `APP_PUBLIC_URL`
+  - `TELEGRAM_BOT_TOKEN`
+  - `TELEGRAM_BOT_USERNAME` (опционально, если не указан — backend попытается получить через `getMe`)
+  - `TELEGRAM_ADMIN_CHAT_IDS` (список chat id/username через запятую для алертов о гостевых заявках)
+  - `WHATSAPP_ACCESS_TOKEN`
+  - `WHATSAPP_PHONE_NUMBER_ID`
+  - `EVENT_REMINDER_INTERVAL_MS` (интервал проверки напоминаний, по умолчанию 5 минут)
 
 Далее:
 
@@ -96,6 +113,8 @@ npm run server:seed
 - `POST /api/auth/login`
 - `GET /api/auth/me`
 - `GET /api/events`
+- `POST /api/events/:id/register` (гость или авторизованный)
+- `POST /api/auth/telegram-link` (AUTH, выдача одноразовой ссылки на привязку Telegram)
 - `GET /api/archives`
 - `POST /api/admin/events` (ADMIN)
 - `PATCH /api/admin/events/:id` (ADMIN)
