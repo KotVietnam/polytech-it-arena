@@ -1,9 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import { AdminRoute } from './components/AdminRoute'
 import { GridCellsOverlay } from './components/GridCellsOverlay'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AuthProvider } from './context/AuthContext'
-import { AdminPage } from './pages/AdminPage'
 import { ArchivePage } from './pages/ArchivePage'
 import { CalendarPage } from './pages/CalendarPage'
 import { HomePage } from './pages/HomePage'
@@ -39,10 +37,6 @@ export default function App() {
             <Route path="/tracks/sysadmin" element={<SysadminPage />} />
             <Route path="/tracks/:trackId/info" element={<TrackInfoPage />} />
             <Route path="/tracks/:trackId/news" element={<TrackNewsPage />} />
-
-            <Route element={<AdminRoute />}>
-              <Route path="/admin" element={<AdminPage />} />
-            </Route>
           </Route>
 
           <Route path="*" element={<Navigate to="/register" replace />} />

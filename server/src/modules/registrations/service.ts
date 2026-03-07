@@ -4,6 +4,7 @@ import {
 } from '@prisma/client'
 import { env } from '../../config/env.js'
 import { prisma } from '../../db.js'
+import { grantEventRegistrationPoints } from '../points/service.js'
 import {
   type NotificationChannel,
   sendNotification,
@@ -236,6 +237,15 @@ export const createEventRegistration = async (params: {
       notificationStatus: NotificationDeliveryStatus.PENDING,
     },
   })
+
+  if (params.userId) {
+    await grantEventRegistrationPoints({
+      userId: params.userId,
+      eventId: params.eventId,
+    }).catch((error) => {
+      console.error('[points] failed to grant registration points:', error)
+    })
+  }
 
   const channel: NotificationChannel = params.contactType
   const eventLink =

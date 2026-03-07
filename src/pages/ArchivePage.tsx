@@ -7,12 +7,10 @@ import { formatDateTime } from '../utils/date'
 
 const homeLinkText = 'НА ГЛАВНУЮ >>'
 const calendarLinkText = 'КАЛЕНДАРЬ >>'
-const adminLinkText = 'ADMIN PANEL >>'
 
 export const ArchivePage = () => {
   const { user, isGuest } = useAuth()
   const { archives, loading, error } = useArchives()
-  const isAdmin = user?.role === 'ADMIN'
 
   return (
     <div className="bm-archive-page">
@@ -41,11 +39,6 @@ export const ArchivePage = () => {
             <Link to="/calendar" className="bm-track-header-link mono">
               {calendarLinkText}
             </Link>
-            {isAdmin ? (
-              <Link to="/admin" className="bm-track-header-link mono">
-                {adminLinkText}
-              </Link>
-            ) : null}
           </div>
 
         </header>

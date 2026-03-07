@@ -9,25 +9,12 @@ import {
   type ReactNode,
 } from 'react'
 import { apiGetMe, apiLogin } from '../api/client'
-import type { AuthUser, Level, TrackId } from '../types'
-
-interface RegistrationEntry {
-  id: string
-  trackId: TrackId
-  level: Level
-  points: number
-  date: string
-}
-
-interface UserProfile extends AuthUser {
-  totalPoints: number
-  registrations: RegistrationEntry[]
-}
+import type { AuthUser } from '../types'
 
 interface AuthContextValue {
   isAuthorized: boolean
   isGuest: boolean
-  user: UserProfile | null
+  user: AuthUser | null
   token: string | null
   isAuthLoading: boolean
   authorize: (
@@ -37,12 +24,11 @@ interface AuthContextValue {
   authorizeAsGuest: () => void
   logout: () => void
   refreshMe: () => Promise<void>
-  registerTrack: (trackId: TrackId, level: Level) => void
 }
 
 interface SessionPayload {
   token: string
-  user: UserProfile
+  user: AuthUser
 }
 
 const SESSION_KEY = 'polytech-it-arena-auth-session'
@@ -50,28 +36,7 @@ const LOCAL_TOKEN = '__local_guest__'
 const GUEST_IS_ADMIN =
   import.meta.env.DEV || import.meta.env.VITE_GUEST_ADMIN === 'true'
 
-const levelPoints: Record<Level, number> = {
-  Junior: 60,
-  Middle: 95,
-  Senior: 130,
-}
-
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
-
-const isValidRegistration = (value: unknown): value is RegistrationEntry => {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const candidate = value as Record<string, unknown>
-  return (
-    typeof candidate.id === 'string' &&
-    typeof candidate.trackId === 'string' &&
-    typeof candidate.level === 'string' &&
-    typeof candidate.points === 'number' &&
-    typeof candidate.date === 'string'
-  )
-}
 
 const parseSession = (raw: string | null): SessionPayload | null => {
   if (!raw) {
@@ -89,7 +54,7 @@ const parseSession = (raw: string | null): SessionPayload | null => {
       typeof parsed.user.role === 'string' &&
       typeof parsed.user.totalPoints === 'number' &&
       Array.isArray(parsed.user.registrations) &&
-      parsed.user.registrations.every(isValidRegistration)
+      Array.isArray(parsed.user.pointHistory)
     ) {
       return parsed
     }
@@ -100,23 +65,7 @@ const parseSession = (raw: string | null): SessionPayload | null => {
   return null
 }
 
-const mergeWithProgress = (serverUser: AuthUser, previous: UserProfile | null): UserProfile => {
-  if (!previous || previous.username !== serverUser.username) {
-    return {
-      ...serverUser,
-      totalPoints: 0,
-      registrations: [],
-    }
-  }
-
-  return {
-    ...serverUser,
-    totalPoints: previous.totalPoints,
-    registrations: previous.registrations,
-  }
-}
-
-const createLocalGuestUser = (): UserProfile => ({
+const createLocalGuestUser = (): AuthUser => ({
   id: 'guest-local',
   username: 'GUEST',
   firstName: null,
@@ -130,6 +79,7 @@ const createLocalGuestUser = (): UserProfile => ({
   role: GUEST_IS_ADMIN ? 'ADMIN' : 'USER',
   totalPoints: 0,
   registrations: [],
+  pointHistory: [],
 })
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -165,7 +115,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
             return {
               token: previous.token,
-              user: mergeWithProgress(response.user, previous.user),
+              user: response.user,
             }
           })
         }
@@ -192,10 +142,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAuthLoading(true)
     try {
       const response = await apiLogin(normalized, password)
-      setState((previous) => ({
+      setState({
         token: response.token,
-        user: mergeWithProgress(response.user, previous?.user ?? null),
-      }))
+        user: response.user,
+      })
       return { ok: true }
     } catch (error) {
       const message =
@@ -231,38 +181,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       return {
         token: previous.token,
-        user: mergeWithProgress(response.user, previous.user),
+        user: response.user,
       }
     })
   }, [state?.token])
-
-  const registerTrack = (trackId: TrackId, level: Level) => {
-    setState((previous) => {
-      const baseState: SessionPayload =
-        previous ?? {
-          token: LOCAL_TOKEN,
-          user: createLocalGuestUser(),
-        }
-
-      const points = levelPoints[level]
-      const newEntry: RegistrationEntry = {
-        id: `${trackId}-${level}-${Date.now()}`,
-        trackId,
-        level,
-        points,
-        date: new Date().toISOString(),
-      }
-
-      return {
-        token: baseState.token,
-        user: {
-          ...baseState.user,
-          totalPoints: baseState.user.totalPoints + points,
-          registrations: [newEntry, ...baseState.user.registrations].slice(0, 30),
-        },
-      }
-    })
-  }
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -275,7 +197,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       authorizeAsGuest,
       logout,
       refreshMe,
-      registerTrack,
     }),
     [state, isAuthLoading, refreshMe],
   )

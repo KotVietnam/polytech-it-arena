@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>POLYTECH IT ARENA | Админ-портал</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <p class="brand-kicker">POLYTECH IT ARENA</p>
+          <h1>Центр управления</h1>
+        </div>
+        <div id="session-meta" class="session-meta">Не авторизован</div>
+      </header>
+
+      <main class="layout">
+        <section id="login-panel" class="card">
+          <h2>Вход администратора</h2>
+          <p class="muted">Используйте учетную запись с ролью ADMIN.</p>
+          <form id="login-form" class="form-grid">
+            <label>
+              Логин
+              <input id="login-username" type="text" autocomplete="username" required />
+            </label>
+            <label>
+              Пароль
+              <input id="login-password" type="password" autocomplete="current-password" required />
+            </label>
+            <button type="submit">Войти</button>
+          </form>
+          <p id="login-error" class="error-text"></p>
+        </section>
+
+        <section id="app-panel" class="app-panel hidden">
+          <aside class="sidebar card">
+            <button class="nav-btn active" data-target="overview">Обзор</button>
+            <button class="nav-btn" data-target="events">События</button>
+            <button class="nav-btn" data-target="live">LIVE-управление</button>
+            <button class="nav-btn" data-target="points">Баллы</button>
+            <button id="logout-btn" class="nav-btn danger">Выйти</button>
+          </aside>
+
+          <section class="content">
+            <article id="view-overview" class="card view">
+              <h2>Оперативная сводка</h2>
+              <div class="stats-grid">
+                <div class="stat">
+                  <span>Событий</span>
+                  <strong id="stat-events">0</strong>
+                </div>
+                <div class="stat">
+                  <span>Пользователей</span>
+                  <strong id="stat-users">0</strong>
+                </div>
+                <div class="stat">
+                  <span>Текущее LIVE-событие</span>
+                  <strong id="stat-live-event">Нет</strong>
+                </div>
+                <div class="stat">
+                  <span>Статус таймера</span>
+                  <strong id="stat-live-status">ОЖИДАНИЕ</strong>
+                </div>
+              </div>
+            </article>
+
+            <article id="view-events" class="card view hidden">
+              <h2>Управление событиями</h2>
+              <form id="event-form" class="form-grid two-col">
+                <label>
+                  Трек
+                  <select id="event-track">
+                    <option value="cybersecurity">Кибербезопасность</option>
+                    <option value="networks">Сетевые технологии</option>
+                    <option value="devops">DevOps</option>
+                    <option value="sysadmin">Системное администрирование</option>
+                  </select>
+                </label>
+                <label>
+                  Уровень
+                  <select id="event-level">
+                    <option value="Junior">Junior (Начальный)</option>
+                    <option value="Middle">Middle (Средний)</option>
+                    <option value="Senior">Senior (Продвинутый)</option>
+                  </select>
+                </label>
+                <label>
+                  Название
+                  <input id="event-title" type="text" required />
+                </label>
+                <label>
+                  Длительность
+                  <input id="event-duration" type="text" placeholder="2h 30m" required />
+                </label>
+                <label>
+                  Локация
+                  <input id="event-location" type="text" required />
+                </label>
+                <label>
+                  Дата и время старта
+                  <input id="event-date" type="datetime-local" required />
+                </label>
+                <label class="full">
+                  Ссылка для гостей (необязательно)
+                  <input id="event-link" type="url" placeholder="https://..." />
+                </label>
+                <label class="full">
+                  Описание
+                  <textarea id="event-description" rows="3" required></textarea>
+                </label>
+                <button type="submit">Создать событие</button>
+              </form>
+
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Название</th>
+                      <th>Трек</th>
+                      <th>Дата</th>
+                      <th>Локация</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="events-body"></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article id="view-live" class="card view hidden">
+              <h2>Проведение соревнования (LIVE)</h2>
+              <div class="form-grid two-col">
+                <label>
+                  LIVE-событие
+                  <select id="live-event-select"></select>
+                </label>
+                <button id="draw-btn" type="button">Провести жеребьевку</button>
+              </div>
+
+              <div class="live-timer">
+                <div class="timer-box">
+                  <span>Таймер</span>
+                  <strong id="live-timer">00:00:00</strong>
+                </div>
+                <div class="timer-box">
+                  <span>Статус</span>
+                  <strong id="live-status">ОЖИДАНИЕ</strong>
+                </div>
+              </div>
+
+              <div class="control-row">
+                <button type="button" data-timer-action="START">Старт</button>
+                <button type="button" data-timer-action="PAUSE">Пауза</button>
+                <button type="button" data-timer-action="BREAK">Перерыв</button>
+                <button type="button" data-timer-action="RESUME">Продолжить</button>
+                <button type="button" data-timer-action="RESET" class="danger">Сброс</button>
+              </div>
+
+              <form id="score-form" class="form-grid two-col">
+                <label>
+                  Команда
+                  <select id="score-team">
+                    <option value="BLUE">СИНЯЯ (BLUE)</option>
+                    <option value="RED">КРАСНАЯ (RED)</option>
+                  </select>
+                </label>
+                <label>
+                  Баллы
+                  <input id="score-points" type="number" min="-100" max="100" step="1" value="5" required />
+                </label>
+                <label class="full">
+                  Причина
+                  <input id="score-reason" type="text" required />
+                </label>
+                <button type="submit">Начислить баллы</button>
+              </form>
+
+              <div class="split">
+                <section>
+                  <h3>Команды</h3>
+                  <ul id="teams-list" class="clean-list"></ul>
+                </section>
+                <section>
+                  <h3>Последние действия</h3>
+                  <ul id="actions-list" class="clean-list"></ul>
+                </section>
+              </div>
+            </article>
+
+            <article id="view-points" class="card view hidden">
+              <h2>Ручное начисление</h2>
+              <form id="points-form" class="form-grid two-col">
+                <label>
+                  Пользователь
+                  <select id="points-user" required></select>
+                </label>
+                <label>
+                  Событие (необязательно)
+                  <select id="points-event">
+                    <option value="">Нет</option>
+                  </select>
+                </label>
+                <label>
+                  Баллы
+                  <input id="points-value" type="number" min="-500" max="500" step="1" required />
+                </label>
+                <label class="full">
+                  Причина
+                  <input id="points-reason" type="text" required />
+                </label>
+                <button type="submit">Начислить баллы</button>
+              </form>
+            </article>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+    <script src="./app.js"></script>
+  </body>
+  </html>

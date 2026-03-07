@@ -1,6 +1,12 @@
 import { Role } from '@prisma/client'
 import { env } from '../../config/env.js'
 import { prisma } from '../../db.js'
+import {
+  getUserPointsSnapshot,
+  grantDailyLoginPoints,
+  type UserPointHistoryEntryDto,
+  type UserRegistrationPointsDto,
+} from '../points/service.js'
 import { authenticateUser } from './provider.js'
 import { signAuthToken } from './token.js'
 
@@ -16,9 +22,12 @@ export interface AuthUserDto {
   telegramLinked: boolean
   telegramUsername: string | null
   role: Role
+  totalPoints: number
+  registrations: UserRegistrationPointsDto[]
+  pointHistory: UserPointHistoryEntryDto[]
 }
 
-const toAuthUserDto = (user: {
+const toAuthUserDto = async (user: {
   id: string
   username: string
   firstName: string | null
@@ -30,19 +39,26 @@ const toAuthUserDto = (user: {
   telegramChatId: string | null
   telegramUsername: string | null
   role: Role
-}): AuthUserDto => ({
-  id: user.id,
-  username: user.username,
-  firstName: user.firstName,
-  lastName: user.lastName,
-  displayName: user.displayName,
-  email: user.email,
-  phoneNumber: user.phoneNumber,
-  telegramContact: user.telegramContact,
-  telegramLinked: Boolean(user.telegramChatId),
-  telegramUsername: user.telegramUsername,
-  role: user.role,
-})
+}): Promise<AuthUserDto> => {
+  const pointsSnapshot = await getUserPointsSnapshot(user.id)
+
+  return {
+    id: user.id,
+    username: user.username,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    displayName: user.displayName,
+    email: user.email,
+    phoneNumber: user.phoneNumber,
+    telegramContact: user.telegramContact,
+    telegramLinked: Boolean(user.telegramChatId),
+    telegramUsername: user.telegramUsername,
+    role: user.role,
+    totalPoints: pointsSnapshot.totalPoints,
+    registrations: pointsSnapshot.registrations,
+    pointHistory: pointsSnapshot.pointHistory,
+  }
+}
 
 export const loginWithDirectory = async (username: string, password: string) => {
   const identity = await authenticateUser(username, password)
@@ -92,6 +108,12 @@ export const loginWithDirectory = async (username: string, password: string) => 
     },
   })
 
+  await grantDailyLoginPoints(user.id).catch((error) => {
+    console.error('[points] failed to grant daily login points:', error)
+  })
+
+  const authUser = await toAuthUserDto(user)
+
   const token = signAuthToken({
     sub: user.id,
     username: user.username,
@@ -100,7 +122,7 @@ export const loginWithDirectory = async (username: string, password: string) => 
 
   return {
     token,
-    user: toAuthUserDto(user),
+    user: authUser,
   }
 }
 

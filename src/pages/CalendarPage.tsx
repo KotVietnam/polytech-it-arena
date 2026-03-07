@@ -71,7 +71,7 @@ const toTimeLabel = (isoDate: string) =>
   dateTimeShortFormatter.format(new Date(isoDate)).replace(',', '')
 
 export const CalendarPage = () => {
-  const { user, isGuest, token, registerTrack, refreshMe } = useAuth()
+  const { user, isGuest, token, refreshMe } = useAuth()
   const { events } = useEvents()
   const [subtitleIndex, setSubtitleIndex] = useState(0)
   const [phase, setPhase] = useState<'typing' | 'hold' | 'deleting'>('typing')
@@ -232,8 +232,6 @@ export const CalendarPage = () => {
         }
         throw new Error(response.error || 'Требуется привязка Telegram')
       }
-
-      registerTrack(registerModalItem.track, registerModalItem.level)
 
       setRegisteredEventIds((previous) => {
         const next = new Set(previous)

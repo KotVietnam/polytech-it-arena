@@ -4,6 +4,10 @@ import type {
   EventItem,
   EventRegistrationItem,
   Level,
+  IncomingTeamInviteItem,
+  TeamItem,
+  TeamPendingInviteItem,
+  TeamSearchUserItem,
   TrackId,
   UserRole,
 } from '../types'
@@ -87,6 +91,39 @@ export const apiGetEvents = async (params?: {
   const suffix = search.size ? `?${search.toString()}` : ''
   return request<{ items: EventItem[] }>(`/events${suffix}`)
 }
+
+export interface EventLiveStatsItem {
+  eventId: string
+  hasDraw: boolean
+  participantsCount: number
+  timer: {
+    status: 'idle' | 'running' | 'paused' | 'break'
+    elapsedSeconds: number
+    startedAt: string | null
+  }
+  teams: Array<{
+    id: 'blue' | 'red'
+    name: string
+    score: number
+    participantsCount: number
+    participants: Array<{
+      registrationId: string
+      userId: string | null
+      name: string
+    }>
+  }>
+  recentActions: Array<{
+    id: string
+    team: 'blue' | 'red'
+    points: number
+    reason: string
+    judgeUsername: string | null
+    createdAt: string
+  }>
+}
+
+export const apiGetEventLiveStats = async (eventId: string) =>
+  request<{ item: EventLiveStatsItem }>(`/events/${eventId}/live-stats`)
 
 export const apiGetArchives = async () => request<{ items: ArchiveItem[] }>('/archives')
 
@@ -175,6 +212,52 @@ export const apiCreateTelegramLink = async (token: string) =>
     token,
   })
 
+export const apiGetMyTeams = async (token: string) =>
+  request<{ teams: TeamItem[]; incomingInvites: IncomingTeamInviteItem[] }>('/teams/my', {
+    token,
+  })
+
+export const apiCreateTeam = async (token: string, name: string) =>
+  request<{ item: TeamItem }>('/teams', {
+    method: 'POST',
+    token,
+    body: JSON.stringify({ name }),
+  })
+
+export const apiSearchTeamInviteCandidates = async (
+  token: string,
+  teamId: string,
+  query: string,
+) => {
+  const search = new URLSearchParams()
+  search.set('q', query)
+  return request<{ items: TeamSearchUserItem[] }>(`/teams/${teamId}/search-users?${search.toString()}`, {
+    token,
+  })
+}
+
+export const apiCreateTeamInvite = async (
+  token: string,
+  teamId: string,
+  inviteeUserId: string,
+) =>
+  request<{ item: TeamPendingInviteItem }>(`/teams/${teamId}/invites`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify({ inviteeUserId }),
+  })
+
+export const apiRespondTeamInvite = async (
+  token: string,
+  inviteId: string,
+  action: 'ACCEPT' | 'DECLINE',
+) =>
+  request<{ item: { status: 'ACCEPTED' | 'DECLINED' } }>(`/teams/invites/${inviteId}/respond`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify({ action }),
+  })
+
 export interface EventFormPayload {
   track: TrackId
   level: Level
@@ -240,6 +323,7 @@ export interface AdminUserItem {
   email: string | null
   role: UserRole
   lastLoginAt: string | null
+  totalPoints: number
 }
 
 export const apiAdminListUsers = async (token: string) =>
@@ -254,4 +338,86 @@ export const apiAdminUpdateUserRole = async (
     method: 'PATCH',
     token,
     body: JSON.stringify({ role }),
+  })
+
+export interface AdminPointRuleItem {
+  key: 'LOGIN_DAILY' | 'EVENT_REGISTRATION' | 'TELEGRAM_LINK'
+  title: string
+  points: number
+  description: string
+}
+
+export const apiAdminListPointRules = async (token: string) =>
+  request<{ items: AdminPointRuleItem[] }>('/admin/points/rules', {
+    token,
+  })
+
+export interface AdminGrantPointsPayload {
+  userId: string
+  points: number
+  reason: string
+  eventId?: string | null
+}
+
+export const apiAdminGrantPoints = async (
+  token: string,
+  payload: AdminGrantPointsPayload,
+) =>
+  request<{
+    item: {
+      id: string
+      userId: string
+      points: number
+      reason: string
+      eventId: string | null
+      actionType: string
+      createdAt: string
+    }
+  }>('/admin/points/grant', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload),
+  })
+
+export const apiAdminDrawLiveTeams = async (token: string, eventId: string) =>
+  request<{ item: EventLiveStatsItem }>(`/admin/live/${eventId}/draw`, {
+    method: 'POST',
+    token,
+  })
+
+export interface AdminLiveScorePayload {
+  team: 'BLUE' | 'RED'
+  points: number
+  reason: string
+}
+
+export interface AdminLiveTimerPayload {
+  action: 'START' | 'PAUSE' | 'BREAK' | 'RESUME' | 'RESET'
+}
+
+export const apiAdminAddLiveScore = async (
+  token: string,
+  eventId: string,
+  payload: AdminLiveScorePayload,
+) =>
+  request<{ item: EventLiveStatsItem }>(`/admin/live/${eventId}/score`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload),
+  })
+
+export const apiAdminUpdateLiveTimer = async (
+  token: string,
+  eventId: string,
+  payload: AdminLiveTimerPayload,
+) =>
+  request<{ item: EventLiveStatsItem }>(`/admin/live/${eventId}/timer`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload),
+  })
+
+export const apiAdminGetLiveStats = async (token: string, eventId: string) =>
+  request<{ item: EventLiveStatsItem }>(`/admin/live/${eventId}`, {
+    token,
   })

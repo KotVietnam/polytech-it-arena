@@ -1,6 +1,7 @@
 import { env } from '../../config/env.js'
 import { prisma } from '../../db.js'
 import { parseTelegramStartPayload } from '../auth/telegram-link.js'
+import { grantTelegramLinkPoints } from '../points/service.js'
 import { createGuestEventRegistration } from '../registrations/service.js'
 import { sendNotification } from './service.js'
 
@@ -165,6 +166,10 @@ const completeAuthLink = async (params: {
       data: { usedAt: new Date() },
     }),
   ])
+
+  await grantTelegramLinkPoints(params.userId).catch((error) => {
+    console.error('[points] failed to grant telegram link points:', error)
+  })
 
   pendingAuthTokensByChatId.delete(params.chatId)
   await sendBotMessage(

@@ -19,6 +19,28 @@ export interface EventItem {
 export type UserRole = 'USER' | 'ADMIN'
 export type RegistrationContactType = 'telegram' | 'whatsapp'
 export type NotificationSendStatus = 'sent' | 'failed' | 'skipped'
+export type PointActionType =
+  | 'adminManual'
+  | 'loginDaily'
+  | 'eventRegistration'
+  | 'telegramLink'
+
+export interface UserRegistrationStat {
+  id: string
+  trackId: TrackId
+  level: Level
+  points: number
+  date: string
+}
+
+export interface UserPointHistoryItem {
+  id: string
+  actionType: PointActionType
+  points: number
+  reason: string
+  date: string
+  eventTitle: string | null
+}
 
 export interface AuthUser {
   id: string
@@ -32,6 +54,58 @@ export interface AuthUser {
   telegramLinked: boolean
   telegramUsername: string | null
   role: UserRole
+  totalPoints: number
+  registrations: UserRegistrationStat[]
+  pointHistory: UserPointHistoryItem[]
+}
+
+export type TeamMemberRole = 'OWNER' | 'MEMBER'
+
+export interface TeamMemberItem {
+  userId: string
+  username: string
+  displayName: string | null
+  fullName: string | null
+  role: TeamMemberRole
+  joinedAt: string
+}
+
+export interface TeamPendingInviteItem {
+  id: string
+  inviteeUserId: string
+  username: string
+  displayName: string | null
+  fullName: string | null
+  createdAt: string
+}
+
+export interface TeamItem {
+  id: string
+  name: string
+  createdAt: string
+  updatedAt: string
+  isOwner: boolean
+  members: TeamMemberItem[]
+  pendingInvites: TeamPendingInviteItem[]
+}
+
+export interface IncomingTeamInviteItem {
+  id: string
+  teamId: string
+  teamName: string
+  inviterUserId: string
+  inviterUsername: string
+  inviterDisplayName: string | null
+  inviterFullName: string | null
+  createdAt: string
+}
+
+export interface TeamSearchUserItem {
+  id: string
+  username: string
+  displayName: string | null
+  fullName: string | null
+  email: string | null
 }
 
 export interface ArchiveItem {

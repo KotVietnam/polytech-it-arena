@@ -9,6 +9,7 @@ import {
   createGuestEventRegistration,
   createEventRegistrationForAuthorizedUser,
 } from '../registrations/service.js'
+import { getEventLiveSnapshot } from '../live/service.js'
 import {
   createGuestTelegramRegistrationLink,
   createTelegramLinkForUser,
@@ -26,6 +27,21 @@ eventsRouter.get(
 
     const items = await listEvents(filters)
     res.json({ items })
+  }),
+)
+
+eventsRouter.get(
+  '/:id/live-stats',
+  asyncHandler(async (req, res) => {
+    try {
+      const item = await getEventLiveSnapshot(req.params.id)
+      res.json({ item })
+    } catch (error) {
+      if (error instanceof Error && error.message === 'EVENT_NOT_FOUND') {
+        throw new HttpError(404, 'Event not found')
+      }
+      throw error
+    }
   }),
 )
 

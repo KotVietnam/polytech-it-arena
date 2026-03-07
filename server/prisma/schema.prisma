@@ -44,7 +44,15 @@ model User {
   createdEvents   Event[]        @relation("EventCreatedBy")
   createdArchives ArchiveEntry[] @relation("ArchiveCreatedBy")
   registrations   EventRegistration[]
+  pointEntries    UserPointEntry[] @relation("UserPointEntries")
+  createdPointEntries UserPointEntry[] @relation("PointEntriesCreatedBy")
+  createdLiveMatches EventLiveMatch[] @relation("LiveMatchCreatedBy")
+  createdLiveScoreEntries EventLiveScoreEntry[] @relation("LiveScoreCreatedBy")
   telegramLinkTokens TelegramLinkToken[]
+  createdTeams    Team[]         @relation("TeamCreatedBy")
+  teamMemberships TeamMember[]
+  sentTeamInvites TeamInvite[]   @relation("TeamInviteInviter")
+  receivedTeamInvites TeamInvite[] @relation("TeamInviteInvitee")
 }
 
 model Event {
@@ -63,6 +71,8 @@ model Event {
   updatedAt    DateTime      @updatedAt
   archiveEntry ArchiveEntry?
   registrations EventRegistration[]
+  pointEntries UserPointEntry[]
+  liveMatch EventLiveMatch?
   guestTelegramTokens TelegramGuestRegistrationToken[]
 
   @@index([startsAt])
@@ -79,6 +89,37 @@ enum NotificationDeliveryStatus {
   SENT
   FAILED
   SKIPPED
+}
+
+enum PointActionType {
+  ADMIN_MANUAL
+  LOGIN_DAILY
+  EVENT_REGISTRATION
+  TELEGRAM_LINK
+}
+
+enum LiveTeam {
+  BLUE
+  RED
+}
+
+enum LiveTimerStatus {
+  IDLE
+  RUNNING
+  PAUSED
+  BREAK
+}
+
+enum TeamMemberRole {
+  OWNER
+  MEMBER
+}
+
+enum TeamInviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELED
 }
 
 model EventRegistration {
@@ -103,12 +144,77 @@ model EventRegistration {
   createdAt            DateTime                   @default(now())
   event                Event                      @relation(fields: [eventId], references: [id], onDelete: Cascade)
   user                 User?                      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  liveAssignments      EventLiveTeamAssignment[]
 
   @@index([eventId, createdAt])
   @@index([userId, createdAt])
   @@index([reminderStatus, reminderSentAt])
   @@unique([eventId, userId])
   @@unique([eventId, contactType, contactValue])
+}
+
+model UserPointEntry {
+  id          String          @id @default(uuid())
+  userId      String
+  createdById String?
+  eventId     String?
+  actionType  PointActionType
+  points      Int
+  reason      String
+  dedupeKey   String?         @unique
+  createdAt   DateTime        @default(now())
+  user        User            @relation("UserPointEntries", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy   User?           @relation("PointEntriesCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  event       Event?          @relation(fields: [eventId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([actionType, createdAt])
+  @@index([eventId, createdAt])
+}
+
+model EventLiveMatch {
+  id           String                    @id @default(uuid())
+  eventId      String                    @unique
+  timerStatus  LiveTimerStatus           @default(IDLE)
+  timerElapsedSeconds Int                @default(0)
+  timerLastStartedAt DateTime?
+  createdById  String?
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  event        Event                     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdBy    User?                     @relation("LiveMatchCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  assignments  EventLiveTeamAssignment[]
+  scoreEntries EventLiveScoreEntry[]
+
+  @@index([createdAt])
+}
+
+model EventLiveTeamAssignment {
+  id             String            @id @default(uuid())
+  matchId        String
+  registrationId String
+  team           LiveTeam
+  createdAt      DateTime          @default(now())
+  match          EventLiveMatch    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  registration   EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, registrationId])
+  @@index([matchId, team])
+}
+
+model EventLiveScoreEntry {
+  id          String         @id @default(uuid())
+  matchId     String
+  createdById String?
+  team        LiveTeam
+  points      Int
+  reason      String
+  createdAt   DateTime       @default(now())
+  match       EventLiveMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  createdBy   User?          @relation("LiveScoreCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([matchId, createdAt])
+  @@index([matchId, team, createdAt])
 }
 
 model TelegramLinkToken {
@@ -135,6 +241,50 @@ model TelegramGuestRegistrationToken {
 
   @@index([chatId, expiresAt, usedAt])
   @@index([eventId, createdAt])
+}
+
+model Team {
+  id          String       @id @default(uuid())
+  name        String
+  createdById String
+  createdBy   User         @relation("TeamCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  members     TeamMember[]
+  invites     TeamInvite[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([createdById, createdAt])
+}
+
+model TeamMember {
+  id        String         @id @default(uuid())
+  teamId    String
+  userId    String
+  role      TeamMemberRole @default(MEMBER)
+  createdAt DateTime       @default(now())
+  team      Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId, createdAt])
+}
+
+model TeamInvite {
+  id         String           @id @default(uuid())
+  teamId     String
+  inviterId  String
+  inviteeId  String
+  status     TeamInviteStatus @default(PENDING)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  respondedAt DateTime?
+  team       Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  inviter    User             @relation("TeamInviteInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee    User             @relation("TeamInviteInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, inviteeId, status])
+  @@index([inviteeId, status, createdAt])
+  @@index([teamId, status, createdAt])
 }
 
 model ArchiveEntry {

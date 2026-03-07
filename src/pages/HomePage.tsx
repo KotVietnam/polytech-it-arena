@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { apiCreateTelegramLink } from '../api/client'
+import { apiGetEventLiveStats, type EventLiveStatsItem } from '../api/client'
 import { UserControls } from '../components/UserControls'
 import { useAuth } from '../context/AuthContext'
 import { trackNames } from '../data/tracks'
@@ -48,8 +48,6 @@ interface RotatingHeadline {
   holdMs: number
 }
 
-type UiTheme = 'red' | 'blue'
-
 const TYPE_SPEED_MS = 46
 const DELETE_SPEED_MS = 28
 const SWITCH_DELAY_MS = 220
@@ -73,11 +71,6 @@ const liveHeadlineWatchText = 'СМОТРЕТЬ >>'
 const scheduleLinkText =
   'УЗНАТЬ РАСПИСАНИЕ >>'
 const archiveLinkText = 'АРХИВ ИВЕНТОВ >>'
-const adminLinkText = 'ADMIN PANEL >>'
-const adminTelegramAuthorizeText = 'АВТОРИЗОВАТЬ TELEGRAM >>'
-const adminTelegramAuthorizeLoadingText = 'ОТКРЫВАЕМ БОТА...'
-const adminTelegramAuthorizeSuccessText =
-  'Ссылка открыта. Нажмите Start и отправьте /auth в боте. Кнопка исчезнет после привязки.'
 
 const telegramLabel = 'ТЕЛЕГРАМ'
 const telegramValue = '@POLYETCH_IT_ARENA'
@@ -90,12 +83,15 @@ const addressValue =
 const profileLabel = 'Открыть профиль пользователя'
 const liveModeTitle = 'СОРЕВНОВАНИЕ ИДЁТ ПРЯМО СЕЙЧАС'
 const liveModeClassicText = 'ПЕРЕЙТИ НА ГЛАВНУЮ >>'
-
-const resolveThemeFromDocument = (): UiTheme => {
-  if (typeof document === 'undefined') {
-    return 'red'
-  }
-  return document.documentElement.getAttribute('data-theme') === 'blue' ? 'blue' : 'red'
+const liveParticipantsLabel = 'УЧАСТНИКОВ'
+const liveAwaitingDrawText = 'ОЖИДАЕТСЯ ЖЕРЕБЬЕВКА КОМАНД'
+const liveLastActionLabel = 'ПОСЛЕДНЕЕ ДЕЙСТВИЕ'
+const liveTimerLabel = 'ТАЙМЕР'
+const liveTimerStatusMap: Record<EventLiveStatsItem['timer']['status'], string> = {
+  idle: 'НЕ ЗАПУЩЕН',
+  running: 'СТАРТ',
+  paused: 'ПАУЗА',
+  break: 'ПЕРЕРЫВ',
 }
 
 const eventHeadlineDateFormatter = new Intl.DateTimeFormat('ru-RU', {
@@ -113,69 +109,49 @@ const formatEventHeadlineDate = (isoDate: string) => {
   return `${eventHeadlineDateFormatter.format(parsed).toUpperCase()} В ${eventHeadlineTimeFormatter.format(parsed)}`
 }
 
+const formatElapsedTimer = (totalSeconds: number) => {
+  const safe = Math.max(0, Math.floor(totalSeconds))
+  const hours = Math.floor(safe / 3600)
+  const minutes = Math.floor((safe % 3600) / 60)
+  const seconds = safe % 60
+  return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':')
+}
+
+const resolveLiveElapsedSeconds = (snapshot: EventLiveStatsItem | null, nowMs: number) => {
+  if (!snapshot) {
+    return 0
+  }
+
+  if (snapshot.timer.status !== 'running' || !snapshot.timer.startedAt) {
+    return snapshot.timer.elapsedSeconds
+  }
+
+  const startedAtMs = new Date(snapshot.timer.startedAt).getTime()
+  if (!Number.isFinite(startedAtMs)) {
+    return snapshot.timer.elapsedSeconds
+  }
+
+  return snapshot.timer.elapsedSeconds + Math.max(0, Math.floor((nowMs - startedAtMs) / 1000))
+}
+
 export const HomePage = () => {
   const location = useLocation()
   const isClassicCopy = location.pathname === '/live'
-  const [activeTheme, setActiveTheme] = useState<UiTheme>(resolveThemeFromDocument)
-  const { user, isGuest, token, refreshMe } = useAuth()
+  const { user, isGuest } = useAuth()
   const { events } = useEvents()
   const nearestEvent = getNearestEvent(sortEventsByDate(events))
   const [timelineTick, setTimelineTick] = useState(() => Date.now())
+  const [liveNowTick, setLiveNowTick] = useState(() => Date.now())
   const currentEvent = useMemo(
     () => getCurrentEvent(events, new Date(timelineTick)),
     [events, timelineTick],
   )
-  const isAdmin = user?.role === 'ADMIN'
-  const shouldShowAdminTelegramAuthorize = Boolean(isAdmin && !isGuest && !user?.telegramLinked)
-  const liveScoreSeed = useMemo(() => {
-    if (!currentEvent) {
-      return 0
-    }
-
-    return Array.from(`${currentEvent.id}|${currentEvent.date}`).reduce(
-      (acc, char) => acc + char.charCodeAt(0),
-      0,
-    )
-  }, [currentEvent])
-  const blueTeamScore = 80 + (liveScoreSeed % 170)
-  const redTeamScore = 75 + ((liveScoreSeed * 7) % 170)
-  const orderedLiveTeams = useMemo(
-    () =>
-      activeTheme === 'red'
-        ? [
-            {
-              id: 'blue',
-              title: 'BLUE TEAM',
-              score: blueTeamScore,
-            },
-            {
-              id: 'red',
-              title: 'RED TEAM',
-              score: redTeamScore,
-            },
-          ]
-        : [
-            {
-              id: 'red',
-              title: 'RED TEAM',
-              score: redTeamScore,
-            },
-            {
-              id: 'blue',
-              title: 'BLUE TEAM',
-              score: blueTeamScore,
-            },
-          ],
-    [activeTheme, blueTeamScore, redTeamScore],
-  )
+  const [liveStats, setLiveStats] = useState<EventLiveStatsItem | null>(null)
 
   const [headlineIndex, setHeadlineIndex] = useState(0)
   const [phase, setPhase] = useState<RotationPhase>('typing')
   const [charCount, setCharCount] = useState(0)
   const [line1CharCount, setLine1CharCount] = useState(0)
-  const [isAuthorizingAdminTelegram, setIsAuthorizingAdminTelegram] = useState(false)
-  const [adminTelegramAuthorizeInfo, setAdminTelegramAuthorizeInfo] = useState('')
-  const [adminTelegramAuthorizeError, setAdminTelegramAuthorizeError] = useState('')
 
   const rotatingHeadlines = useMemo<RotatingHeadline[]>(() => {
     let eventLine1 = fallbackEventTitle
@@ -233,32 +209,45 @@ export const HomePage = () => {
   }, [])
 
   useEffect(() => {
-    if (typeof document === 'undefined') {
+    const timer = setInterval(() => {
+      setLiveNowTick(Date.now())
+    }, 1000)
+
+    return () => {
+      clearInterval(timer)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!currentEvent) {
+      setLiveStats(null)
       return
     }
 
-    const root = document.documentElement
-    const syncTheme = () => {
-      setActiveTheme(resolveThemeFromDocument())
+    let cancelled = false
+    const loadLiveStats = async () => {
+      try {
+        const response = await apiGetEventLiveStats(currentEvent.id)
+        if (!cancelled) {
+          setLiveStats(response.item)
+        }
+      } catch {
+        if (!cancelled) {
+          setLiveStats(null)
+        }
+      }
     }
 
-    syncTheme()
-
-    const observer = new MutationObserver((records) => {
-      if (records.some((record) => record.type === 'attributes')) {
-        syncTheme()
-      }
-    })
-
-    observer.observe(root, {
-      attributes: true,
-      attributeFilter: ['data-theme'],
-    })
+    void loadLiveStats()
+    const timer = setInterval(() => {
+      void loadLiveStats()
+    }, 20_000)
 
     return () => {
-      observer.disconnect()
+      cancelled = true
+      clearInterval(timer)
     }
-  }, [])
+  }, [currentEvent])
 
   useEffect(() => {
     setHeadlineIndex(0)
@@ -325,41 +314,25 @@ export const HomePage = () => {
     rotatingHeadlines.length,
   ])
 
-  useEffect(() => {
-    if (!shouldShowAdminTelegramAuthorize) {
-      return
-    }
-
-    void refreshMe().catch(() => undefined)
-    const timer = setInterval(() => {
-      void refreshMe().catch(() => undefined)
-    }, 5000)
-
-    return () => clearInterval(timer)
-  }, [refreshMe, shouldShowAdminTelegramAuthorize])
-
-  const handleAdminTelegramAuthorize = async () => {
-    if (!token || isAuthorizingAdminTelegram) {
-      return
-    }
-
-    setIsAuthorizingAdminTelegram(true)
-    setAdminTelegramAuthorizeError('')
-    setAdminTelegramAuthorizeInfo('')
-
-    try {
-      const result = await apiCreateTelegramLink(token)
-      setAdminTelegramAuthorizeInfo(adminTelegramAuthorizeSuccessText)
-      window.open(result.url, '_blank', 'noopener,noreferrer')
-      await refreshMe().catch(() => undefined)
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Не удалось создать ссылку авторизации Telegram.'
-      setAdminTelegramAuthorizeError(message)
-    } finally {
-      setIsAuthorizingAdminTelegram(false)
-    }
-  }
+  const liveTeams = liveStats?.teams ?? [
+    {
+      id: 'blue' as const,
+      name: 'BLUE TEAM',
+      score: 0,
+      participantsCount: 0,
+      participants: [],
+    },
+    {
+      id: 'red' as const,
+      name: 'RED TEAM',
+      score: 0,
+      participantsCount: 0,
+      participants: [],
+    },
+  ]
+  const lastLiveAction = liveStats?.recentActions[0] ?? null
+  const liveTimerSeconds = resolveLiveElapsedSeconds(liveStats, liveNowTick)
+  const liveTimerStatusText = liveStats ? liveTimerStatusMap[liveStats.timer.status] : liveTimerStatusMap.idle
 
   if (currentEvent && !isClassicCopy) {
 
@@ -378,16 +351,33 @@ export const HomePage = () => {
           </section>
 
           <section className="bm-live-event-panel">
-            <div className="bm-live-scoreboard" aria-label="Очки команд">
-              {orderedLiveTeams.map((team) => (
-                <article
-                  key={team.id}
-                  className={`bm-live-team-card bm-live-team-card-${team.id}`}
-                >
-                  <p className="bm-live-team-name mono">{team.title}</p>
+            <div className="bm-live-scoreboard" aria-label="Статистика очков события">
+              {liveTeams.map((team) => (
+                <article key={team.id} className={`bm-live-team-card bm-live-team-card-${team.id}`}>
+                  <p className="bm-live-team-name mono">{team.name}</p>
                   <p className="bm-live-team-score mono">{team.score} PTS</p>
+                  <p className="bm-live-team-hint mono">
+                    {liveParticipantsLabel}: {team.participantsCount}
+                  </p>
+                  <p className="bm-live-team-hint mono">
+                    {team.participants[0]?.name ?? 'СОСТАВ ЕЩЁ НЕ СФОРМИРОВАН'}
+                  </p>
                 </article>
               ))}
+            </div>
+            <div className="bm-live-event-log mono">
+              {liveStats?.hasDraw ? (
+                lastLiveAction ? (
+                  `${liveLastActionLabel}: ${lastLiveAction.team.toUpperCase()} ${lastLiveAction.points > 0 ? '+' : ''}${lastLiveAction.points} / ${lastLiveAction.reason}`
+                ) : (
+                  'СУДЕЙСКИЕ ДЕЙСТВИЯ ПОКА НЕ ЗАФИКСИРОВАНЫ'
+                )
+              ) : (
+                liveAwaitingDrawText
+              )}
+            </div>
+            <div className="bm-live-event-log mono">
+              {liveTimerLabel}: {formatElapsedTimer(liveTimerSeconds)} / {liveTimerStatusText}
             </div>
 
           </section>
@@ -428,35 +418,6 @@ export const HomePage = () => {
             <Link to="/archive" className="bm-header-action mono">
               {archiveLinkText}
             </Link>
-            {shouldShowAdminTelegramAuthorize ? (
-              <button
-                type="button"
-                className="bm-header-action bm-header-action-button mono"
-                onClick={() => {
-                  void handleAdminTelegramAuthorize()
-                }}
-                disabled={isAuthorizingAdminTelegram}
-              >
-                {isAuthorizingAdminTelegram
-                  ? adminTelegramAuthorizeLoadingText
-                  : adminTelegramAuthorizeText}
-              </button>
-            ) : null}
-            {isAdmin ? (
-              <Link to="/admin" className="bm-header-action mono">
-                {adminLinkText}
-              </Link>
-            ) : null}
-            {adminTelegramAuthorizeInfo ? (
-              <p className="bm-header-action-feedback bm-header-action-feedback-success mono">
-                {adminTelegramAuthorizeInfo}
-              </p>
-            ) : null}
-            {adminTelegramAuthorizeError ? (
-              <p className="bm-header-action-feedback bm-header-action-feedback-error mono">
-                {adminTelegramAuthorizeError}
-              </p>
-            ) : null}
           </div>
 
         </header>

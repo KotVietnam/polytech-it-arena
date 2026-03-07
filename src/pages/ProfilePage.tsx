@@ -1,10 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
+import {
+  apiCreateTeam,
+  apiCreateTeamInvite,
+  apiGetMyTeams,
+  apiRespondTeamInvite,
+  apiSearchTeamInviteCandidates,
+} from '../api/client'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { useAuth } from '../context/AuthContext'
 import { trackNames } from '../data/tracks'
 import { useEvents } from '../hooks/useEvents'
-import type { TrackId } from '../types'
+import type {
+  IncomingTeamInviteItem,
+  TeamItem,
+  TeamSearchUserItem,
+  TrackId,
+} from '../types'
 import { formatDateTime, getNearestEvent, sortEventsByDate } from '../utils/date'
 
 const homeLinkText = 'НА ГЛАВНУЮ >>'
@@ -19,6 +31,8 @@ const SWITCH_DELAY_MS = 220
 
 const trackOrder: TrackId[] = ['cybersecurity', 'networks', 'devops', 'sysadmin']
 const emptyContactValue = 'НЕ УКАЗАНО'
+const teamOwnerLabel = 'КАПИТАН'
+const teamMemberLabel = 'УЧАСТНИК'
 
 const normalizeTelegramHandle = (value: string | null | undefined) => {
   const trimmed = value?.trim()
@@ -33,12 +47,35 @@ const normalizeTelegramHandle = (value: string | null | undefined) => {
   return trimmed.startsWith('@') ? trimmed : `@${trimmed}`
 }
 
+const resolveTeamUserDisplayName = (item: {
+  username: string
+  fullName: string | null
+  displayName: string | null
+}) => item.fullName ?? item.displayName ?? item.username
+
 export const ProfilePage = () => {
-  const { user, isGuest } = useAuth()
+  const { user, isGuest, token } = useAuth()
   const { events } = useEvents()
   const [subtitleIndex, setSubtitleIndex] = useState(0)
   const [phase, setPhase] = useState<'typing' | 'hold' | 'deleting'>('typing')
   const [charCount, setCharCount] = useState(0)
+  const [teams, setTeams] = useState<TeamItem[]>([])
+  const [incomingTeamInvites, setIncomingTeamInvites] = useState<IncomingTeamInviteItem[]>([])
+  const [teamLoading, setTeamLoading] = useState(false)
+  const [teamError, setTeamError] = useState('')
+  const [teamActionInfo, setTeamActionInfo] = useState('')
+  const [teamActionError, setTeamActionError] = useState('')
+  const [newTeamName, setNewTeamName] = useState('')
+  const [isCreatingTeam, setIsCreatingTeam] = useState(false)
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
+  const [searchInputByTeamId, setSearchInputByTeamId] = useState<Record<string, string>>({})
+  const [searchResultsByTeamId, setSearchResultsByTeamId] = useState<
+    Record<string, TeamSearchUserItem[]>
+  >({})
+  const [searchedTeamIds, setSearchedTeamIds] = useState<Record<string, boolean>>({})
+  const [searchLoadingByTeamId, setSearchLoadingByTeamId] = useState<Record<string, boolean>>({})
+  const [inviteSubmittingKey, setInviteSubmittingKey] = useState<string | null>(null)
+  const [respondingInviteId, setRespondingInviteId] = useState<string | null>(null)
   const activeSubtitle = subtitleRotation[subtitleIndex]
 
   useEffect(() => {
@@ -64,6 +101,170 @@ export const ProfilePage = () => {
     return () => clearTimeout(timer)
   }, [activeSubtitle.length, charCount, phase])
 
+  const loadTeamData = useCallback(
+    async (silent = false) => {
+      if (!token || isGuest) {
+        return
+      }
+
+      if (!silent) {
+        setTeamLoading(true)
+      }
+      setTeamError('')
+
+      try {
+        const response = await apiGetMyTeams(token)
+        setTeams(response.teams)
+        setIncomingTeamInvites(response.incomingInvites)
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Не удалось загрузить команды.'
+        setTeamError(message)
+      } finally {
+        if (!silent) {
+          setTeamLoading(false)
+        }
+      }
+    },
+    [isGuest, token],
+  )
+
+  useEffect(() => {
+    void loadTeamData()
+  }, [loadTeamData])
+
+  useEffect(() => {
+    if (!teams.length) {
+      if (selectedTeamId !== null) {
+        setSelectedTeamId(null)
+      }
+      return
+    }
+
+    if (!selectedTeamId || !teams.some((item) => item.id === selectedTeamId)) {
+      setSelectedTeamId(teams[0].id)
+    }
+  }, [selectedTeamId, teams])
+
+  const handleCreateTeam = async () => {
+    if (!token || isGuest || isCreatingTeam) {
+      return
+    }
+
+    const name = newTeamName.trim()
+    if (name.length < 2) {
+      setTeamActionError('Название команды должно быть не короче 2 символов.')
+      setTeamActionInfo('')
+      return
+    }
+
+    setIsCreatingTeam(true)
+    setTeamActionInfo('')
+    setTeamActionError('')
+    try {
+      await apiCreateTeam(token, name)
+      setNewTeamName('')
+      setTeamActionInfo('Команда успешно создана.')
+      await loadTeamData(true)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось создать команду.'
+      setTeamActionError(message)
+    } finally {
+      setIsCreatingTeam(false)
+    }
+  }
+
+  const handleSearchUsers = async (teamId: string) => {
+    if (!token || isGuest) {
+      return
+    }
+
+    const query = (searchInputByTeamId[teamId] ?? '').trim()
+    if (query.length < 2) {
+      setTeamActionError('Для поиска введите минимум 2 символа.')
+      setTeamActionInfo('')
+      setSearchResultsByTeamId((previous) => ({
+        ...previous,
+        [teamId]: [],
+      }))
+      return
+    }
+
+    setTeamActionError('')
+    setSearchLoadingByTeamId((previous) => ({
+      ...previous,
+      [teamId]: true,
+    }))
+
+    try {
+      const response = await apiSearchTeamInviteCandidates(token, teamId, query)
+      setSearchResultsByTeamId((previous) => ({
+        ...previous,
+        [teamId]: response.items,
+      }))
+      setSearchedTeamIds((previous) => ({
+        ...previous,
+        [teamId]: true,
+      }))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Ошибка поиска пользователей.'
+      setTeamActionError(message)
+    } finally {
+      setSearchLoadingByTeamId((previous) => ({
+        ...previous,
+        [teamId]: false,
+      }))
+    }
+  }
+
+  const handleInviteUser = async (teamId: string, inviteeUserId: string) => {
+    if (!token || isGuest) {
+      return
+    }
+
+    setInviteSubmittingKey(`${teamId}:${inviteeUserId}`)
+    setTeamActionInfo('')
+    setTeamActionError('')
+
+    try {
+      await apiCreateTeamInvite(token, teamId, inviteeUserId)
+      setTeamActionInfo('Приглашение отправлено.')
+      setSearchResultsByTeamId((previous) => ({
+        ...previous,
+        [teamId]: (previous[teamId] ?? []).filter((item) => item.id !== inviteeUserId),
+      }))
+      await loadTeamData(true)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось отправить приглашение.'
+      setTeamActionError(message)
+    } finally {
+      setInviteSubmittingKey(null)
+    }
+  }
+
+  const handleRespondInvite = async (inviteId: string, action: 'ACCEPT' | 'DECLINE') => {
+    if (!token || isGuest) {
+      return
+    }
+
+    setRespondingInviteId(inviteId)
+    setTeamActionInfo('')
+    setTeamActionError('')
+
+    try {
+      await apiRespondTeamInvite(token, inviteId, action)
+      setTeamActionInfo(
+        action === 'ACCEPT' ? 'Приглашение принято.' : 'Приглашение отклонено.',
+      )
+      await loadTeamData(true)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось обработать приглашение.'
+      setTeamActionError(message)
+    } finally {
+      setRespondingInviteId(null)
+    }
+  }
+
   const profileUser = user ?? {
     username: 'GUEST',
     firstName: null,
@@ -76,6 +277,7 @@ export const ProfilePage = () => {
     telegramUsername: null,
     totalPoints: 0,
     registrations: [],
+    pointHistory: [],
     id: 'guest',
     role: 'USER' as const,
   }
@@ -96,6 +298,57 @@ export const ProfilePage = () => {
   const averagePoints = profileUser.registrations.length
     ? Math.round(profileUser.totalPoints / profileUser.registrations.length)
     : 0
+  const activeTeam = teams.find((item) => item.id === selectedTeamId) ?? teams[0] ?? null
+  const activeTeamSearchQuery = activeTeam ? searchInputByTeamId[activeTeam.id] ?? '' : ''
+  const activeTeamSearchResults = activeTeam ? searchResultsByTeamId[activeTeam.id] ?? [] : []
+  const isActiveTeamSearchLoading = activeTeam ? Boolean(searchLoadingByTeamId[activeTeam.id]) : false
+  const wasActiveTeamSearched = activeTeam ? Boolean(searchedTeamIds[activeTeam.id]) : false
+  const summaryCards = [
+    {
+      label: 'ИМЯ И ФАМИЛИЯ',
+      value: fullName,
+      meta: `USER: ${profileUser.username}`,
+      isBig: false,
+    },
+    {
+      label: 'EMAIL',
+      value: profileEmail,
+      meta: profileEmail === emptyContactValue ? 'Контакт не заполнен' : 'Основной канал связи',
+      isBig: false,
+    },
+    {
+      label: 'ТЕЛЕФОН',
+      value: profilePhone,
+      meta: profilePhone === emptyContactValue ? 'Контакт не заполнен' : 'Для связи с организатором',
+      isBig: false,
+    },
+    {
+      label: 'TELEGRAM',
+      value: profileTelegram,
+      meta: profileTelegram === emptyContactValue ? 'Бот не привязан' : 'Аккаунт для уведомлений',
+      isBig: false,
+    },
+    {
+      label: 'ОБЩИЕ БАЛЛЫ',
+      value: String(profileUser.totalPoints),
+      meta: `Средний балл за активность: ${averagePoints}`,
+      isBig: true,
+    },
+    {
+      label: 'РЕГИСТРАЦИИ',
+      value: String(profileUser.registrations.length),
+      meta: nearestEvent
+        ? `Ближайшее событие: ${trackNames[nearestEvent.track]} / ${formatDateTime(nearestEvent.date)}`
+        : 'Новые события пока не опубликованы',
+      isBig: true,
+    },
+    {
+      label: 'ПОСЛЕДНИЙ ТРЕК',
+      value: lastRegistration ? trackNames[lastRegistration.trackId].toUpperCase() : 'НЕТ ДАННЫХ',
+      meta: lastRegistration ? formatDateTime(lastRegistration.date) : 'Нет завершенных регистраций',
+      isBig: false,
+    },
+  ] as const
 
   const trackStats = trackOrder.map((trackId) => {
     const entries = profileUser.registrations.filter((item) => item.trackId === trackId)
@@ -145,107 +398,343 @@ export const ProfilePage = () => {
 
         </header>
 
-        <section className="bm-track-section bm-profile-contact-section">
-          <h2 className="bm-track-section-title mono">ПРОФИЛЬ И КОНТАКТЫ</h2>
-          <div className="bm-profile-contact-grid">
-            <article className="bm-profile-contact-card">
-              <p className="bm-profile-contact-label mono">ИМЯ И ФАМИЛИЯ</p>
-              <p className="bm-profile-contact-value">{fullName}</p>
-            </article>
-
-            <article className="bm-profile-contact-card">
-              <p className="bm-profile-contact-label mono">EMAIL</p>
-              <p className="bm-profile-contact-value">{profileEmail}</p>
-            </article>
-
-            <article className="bm-profile-contact-card">
-              <p className="bm-profile-contact-label mono">ТЕЛЕФОН</p>
-              <p className="bm-profile-contact-value">{profilePhone}</p>
-            </article>
-
-            <article className="bm-profile-contact-card">
-              <p className="bm-profile-contact-label mono">TELEGRAM</p>
-              <p className="bm-profile-contact-value">{profileTelegram}</p>
-            </article>
+        <section className="bm-profile-ref-section">
+          <p className="bm-profile-ref-section-title mono">PROFILE // SNAPSHOT</p>
+          <div className="bm-profile-ref-stats-grid">
+            {summaryCards.map((card) => (
+              <article key={card.label} className="bm-profile-ref-card">
+                <p className="bm-profile-ref-card-label mono">{card.label}</p>
+                <p
+                  className={`bm-profile-ref-card-value ${
+                    card.isBig ? 'bm-profile-ref-card-value-big' : ''
+                  }`}
+                >
+                  {card.value}
+                </p>
+                <p className="bm-profile-ref-card-meta">{card.meta}</p>
+              </article>
+            ))}
           </div>
         </section>
 
-        <section className="bm-profile-stats-grid">
-          <article className="bm-profile-stat-card">
-            <p className="bm-profile-stat-label mono">ОБЩИЕ БАЛЛЫ</p>
-            <p className="bm-profile-stat-value">{profileUser.totalPoints}</p>
-          </article>
+        <section className="bm-profile-ref-section">
+          <p className="bm-profile-ref-section-title mono">TEAM // CONTROL</p>
+          <div className="bm-profile-ref-team-layout">
+            <article className="bm-profile-ref-team-panel bm-profile-ref-team-summary">
+              {activeTeam ? (
+                <>
+                  <h2 className="bm-profile-ref-team-name">{activeTeam.name}</h2>
+                  <div className="bm-profile-ref-team-role mono">
+                    {activeTeam.isOwner ? teamOwnerLabel : teamMemberLabel}
+                  </div>
+                  <p className="bm-profile-ref-team-stat">
+                    Участников в активной команде: {activeTeam.members.length}
+                  </p>
+                  <p className="bm-profile-ref-team-stat">
+                    Ожидающих приглашений: {activeTeam.pendingInvites.length}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="bm-profile-ref-team-name">НЕТ КОМАНДЫ</h2>
+                  <p className="bm-profile-ref-team-stat">
+                    Создай команду справа и начни собирать состав.
+                  </p>
+                </>
+              )}
 
-          <article className="bm-profile-stat-card">
-            <p className="bm-profile-stat-label mono">РЕГИСТРАЦИИ</p>
-            <p className="bm-profile-stat-value">{profileUser.registrations.length}</p>
-          </article>
+              <div className="bm-profile-ref-team-selector-list">
+                {teams.map((team) => (
+                  <button
+                    key={team.id}
+                    type="button"
+                    className={`bm-profile-ref-team-selector mono ${
+                      team.id === activeTeam?.id ? 'bm-profile-ref-team-selector-active' : ''
+                    }`}
+                    onClick={() => {
+                      setSelectedTeamId(team.id)
+                    }}
+                  >
+                    {team.name}
+                  </button>
+                ))}
+              </div>
 
-          <article className="bm-profile-stat-card">
-            <p className="bm-profile-stat-label mono">ПОСЛЕДНИЙ ТРЕК</p>
-            <p className="bm-profile-stat-value bm-profile-stat-value-sm">
-              {lastRegistration
-                ? trackNames[lastRegistration.trackId].toUpperCase()
-                : 'НЕТ ДАННЫХ'}
-            </p>
-          </article>
+              {nearestEvent ? (
+                <p className="bm-profile-ref-next-event mono">
+                  {`NEXT: ${trackNames[nearestEvent.track].toUpperCase()} / ${formatDateTime(nearestEvent.date)}`}
+                </p>
+              ) : null}
+            </article>
 
-          <article className="bm-profile-stat-card">
-            <p className="bm-profile-stat-label mono">СРЕДНИЙ БАЛЛ</p>
-            <p className="bm-profile-stat-value">{averagePoints}</p>
-          </article>
+            <article className="bm-profile-ref-team-panel bm-profile-ref-team-members">
+              <p className="bm-profile-ref-action-title mono">СОСТАВ КОМАНДЫ</p>
+              {activeTeam ? (
+                <div className="bm-profile-ref-member-list">
+                  {activeTeam.members.map((member) => (
+                    <article key={`${activeTeam.id}:${member.userId}`} className="bm-profile-ref-member">
+                      <div className="bm-profile-ref-member-avatar" aria-hidden="true">
+                        {resolveTeamUserDisplayName(member).trim().charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="bm-profile-ref-member-name">
+                          {resolveTeamUserDisplayName(member)}
+                        </div>
+                        <div className="bm-profile-ref-member-username">
+                          @{member.username}
+                        </div>
+                      </div>
+                      <div className="bm-profile-ref-member-role mono">
+                        {member.role === 'OWNER' ? 'КАПИТАН' : 'УЧАСТНИК'}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="bm-profile-ref-empty">
+                  Команда еще не выбрана. Создай новую или переключись на уже существующую.
+                </p>
+              )}
+            </article>
+
+            <div className="bm-profile-ref-team-actions">
+              <article className="bm-profile-ref-action-card">
+                <p className="bm-profile-ref-action-title mono">СОЗДАТЬ КОМАНДУ</p>
+                <div className="bm-profile-ref-search-row">
+                  <input
+                    className="bm-profile-ref-input"
+                    type="text"
+                    value={newTeamName}
+                    onChange={(event) => setNewTeamName(event.target.value)}
+                    placeholder="Название новой команды"
+                    maxLength={64}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="bm-profile-ref-btn mono"
+                  onClick={() => {
+                    void handleCreateTeam()
+                  }}
+                  disabled={isCreatingTeam}
+                >
+                  {isCreatingTeam ? 'СОЗДАЁМ...' : 'СОЗДАТЬ'}
+                </button>
+              </article>
+
+              <article className="bm-profile-ref-action-card">
+                <p className="bm-profile-ref-action-title mono">ПРИГЛАСИТЬ ИГРОКА</p>
+                {activeTeam?.isOwner ? (
+                  <>
+                    <div className="bm-profile-ref-search-row">
+                      <input
+                        className="bm-profile-ref-input"
+                        type="text"
+                        value={activeTeamSearchQuery}
+                        onChange={(event) =>
+                          setSearchInputByTeamId((previous) => ({
+                            ...previous,
+                            [activeTeam.id]: event.target.value,
+                          }))
+                        }
+                        placeholder="Поиск по логину, имени или фамилии"
+                      />
+                      <button
+                        type="button"
+                        className="bm-profile-ref-btn mono"
+                        onClick={() => {
+                          void handleSearchUsers(activeTeam.id)
+                        }}
+                        disabled={isActiveTeamSearchLoading}
+                      >
+                        {isActiveTeamSearchLoading ? 'ИЩЕМ...' : 'НАЙТИ'}
+                      </button>
+                    </div>
+
+                    {activeTeamSearchResults.length ? (
+                      <div className="bm-profile-ref-search-list">
+                        {activeTeamSearchResults.map((candidate) => (
+                          <article
+                            key={`${activeTeam.id}:${candidate.id}`}
+                            className="bm-profile-ref-search-item"
+                          >
+                            <div>
+                              <div className="bm-profile-ref-member-name">
+                                {resolveTeamUserDisplayName(candidate)}
+                              </div>
+                              <div className="bm-profile-ref-member-username">
+                                @{candidate.username}
+                                {candidate.email ? ` / ${candidate.email}` : ''}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              className="bm-profile-ref-btn mono"
+                              onClick={() => {
+                                void handleInviteUser(activeTeam.id, candidate.id)
+                              }}
+                              disabled={inviteSubmittingKey === `${activeTeam.id}:${candidate.id}`}
+                            >
+                              {inviteSubmittingKey === `${activeTeam.id}:${candidate.id}`
+                                ? 'ОТПРАВКА...'
+                                : 'INVITE'}
+                            </button>
+                          </article>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {wasActiveTeamSearched &&
+                    !isActiveTeamSearchLoading &&
+                    activeTeamSearchResults.length === 0 ? (
+                      <p className="bm-profile-ref-empty">
+                        Подходящих пользователей не найдено или они уже в составе.
+                      </p>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="bm-profile-ref-empty">
+                    Приглашать пользователей может только капитан активной команды.
+                  </p>
+                )}
+              </article>
+
+              <article className="bm-profile-ref-action-card">
+                <p className="bm-profile-ref-action-title mono">ВХОДЯЩИЕ ПРИГЛАШЕНИЯ</p>
+                {incomingTeamInvites.length ? (
+                  <div className="bm-profile-ref-search-list">
+                    {incomingTeamInvites.map((invite) => (
+                      <article key={invite.id} className="bm-profile-ref-search-item">
+                        <div>
+                          <div className="bm-profile-ref-member-name">{invite.teamName}</div>
+                          <div className="bm-profile-ref-member-username">
+                            Пригласил: {invite.inviterFullName ?? invite.inviterDisplayName ?? invite.inviterUsername}
+                          </div>
+                        </div>
+                        <div className="bm-profile-ref-inline-actions">
+                          <button
+                            type="button"
+                            className="bm-profile-ref-btn mono"
+                            onClick={() => {
+                              void handleRespondInvite(invite.id, 'ACCEPT')
+                            }}
+                            disabled={respondingInviteId === invite.id}
+                          >
+                            ACCEPT
+                          </button>
+                          <button
+                            type="button"
+                            className="bm-profile-ref-btn bm-profile-ref-btn-danger mono"
+                            onClick={() => {
+                              void handleRespondInvite(invite.id, 'DECLINE')
+                            }}
+                            disabled={respondingInviteId === invite.id}
+                          >
+                            DECLINE
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="bm-profile-ref-empty">Новых приглашений нет.</p>
+                )}
+              </article>
+
+              {teamActionInfo ? (
+                <p className="bm-profile-ref-feedback bm-profile-ref-feedback-success">
+                  {teamActionInfo}
+                </p>
+              ) : null}
+              {teamActionError ? (
+                <p className="bm-profile-ref-feedback bm-profile-ref-feedback-error">
+                  {teamActionError}
+                </p>
+              ) : null}
+              {teamError ? (
+                <p className="bm-profile-ref-feedback bm-profile-ref-feedback-error">
+                  Не удалось загрузить команды: {teamError}
+                </p>
+              ) : null}
+              {teamLoading ? (
+                <p className="bm-profile-ref-empty">Загрузка команд...</p>
+              ) : null}
+            </div>
+          </div>
         </section>
 
-        <section className="bm-track-section">
-          <h2 className="bm-track-section-title mono">СВОДКА ПО КОМПЕТЕНЦИЯМ</h2>
-          <div className="bm-profile-track-grid">
+        <section className="bm-profile-ref-section">
+          <p className="bm-profile-ref-section-title mono">TRACK // MATRIX</p>
+          <div className="bm-profile-ref-competency-grid">
             {trackStats.map((trackStat) => (
-              <article key={trackStat.trackId} className="bm-profile-track-card">
-                <div className="bm-profile-track-head">
-                  <h3 className="bm-profile-track-title mono">
-                    {trackStat.name.toUpperCase()}
-                  </h3>
-                  <span className="bm-profile-track-count mono">{trackStat.count}</span>
-                </div>
-                <p className="bm-profile-track-meta">
+              <article key={trackStat.trackId} className="bm-profile-ref-competency-card">
+                <p className="bm-profile-ref-card-label mono">{trackStat.name}</p>
+                <p className="bm-profile-ref-card-value bm-profile-ref-card-value-big">
+                  {trackStat.count}
+                </p>
+                <p className="bm-profile-ref-card-meta">
                   {trackStat.latestEntry
-                    ? `Последний: ${formatDateTime(trackStat.latestEntry.date)} / ${trackStat.latestEntry.level}`
-                    : 'Пока нет регистраций'}
+                    ? `Последний вход: ${formatDateTime(trackStat.latestEntry.date)} / ${trackStat.latestEntry.level}`
+                    : 'Пока нет регистраций в этом треке'}
                 </p>
               </article>
             ))}
           </div>
         </section>
 
-        <section className="bm-track-section bm-track-section-last">
-          <h2 className="bm-track-section-title mono">ПОСЛЕДНИЕ РЕГИСТРАЦИИ</h2>
+        <section className="bm-profile-ref-section bm-profile-ref-section-last">
+          <p className="bm-profile-ref-section-title mono">ACTIVITY // LOG</p>
+          <div className="bm-profile-ref-activity-grid">
+            <article className="bm-profile-ref-activity-panel">
+              <p className="bm-profile-ref-action-title mono">ПОСЛЕДНИЕ РЕГИСТРАЦИИ</p>
+              {profileUser.registrations.length ? (
+                <div className="bm-profile-ref-activity-list">
+                  {profileUser.registrations.slice(0, 8).map((entry) => (
+                    <article key={entry.id} className="bm-profile-ref-activity-row">
+                      <div>
+                        <div className="bm-profile-ref-member-name">
+                          {trackNames[entry.trackId].toUpperCase()} / {entry.level.toUpperCase()}
+                        </div>
+                        <div className="bm-profile-ref-member-username">
+                          {formatDateTime(entry.date)}
+                        </div>
+                      </div>
+                      <div className="bm-profile-ref-member-role mono">+{entry.points} PTS</div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="bm-profile-ref-empty">
+                  Пока нет регистраций. Открой календарь и запишись на ближайшее соревнование.
+                </p>
+              )}
+            </article>
 
-          {profileUser.registrations.length ? (
-            <div className="bm-profile-log-list">
-              {profileUser.registrations.slice(0, 12).map((entry) => (
-                <article key={entry.id} className="bm-profile-log-row">
-                  <div>
-                    <p className="bm-profile-log-title mono">
-                      {trackNames[entry.trackId].toUpperCase()} / {entry.level.toUpperCase()}
-                    </p>
-                    <p className="bm-profile-log-meta">{formatDateTime(entry.date)}</p>
-                  </div>
-                  <p className="bm-profile-log-points mono">+{entry.points} PTS</p>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <p className="bm-profile-empty">
-              Пока нет регистраций. Открой календарь событий и запишись на
-              ближайшее соревнование.
-            </p>
-          )}
-
-          {nearestEvent ? (
-            <p className="bm-profile-next-event mono">
-              {`БЛИЖАЙШЕЕ СОБЫТИЕ: ${trackNames[nearestEvent.track].toUpperCase()} / ${formatDateTime(nearestEvent.date)}`}
-            </p>
-          ) : null}
+            <article className="bm-profile-ref-activity-panel">
+              <p className="bm-profile-ref-action-title mono">ИСТОРИЯ НАЧИСЛЕНИЙ</p>
+              {profileUser.pointHistory.length ? (
+                <div className="bm-profile-ref-activity-list">
+                  {profileUser.pointHistory.slice(0, 8).map((entry) => (
+                    <article key={entry.id} className="bm-profile-ref-activity-row">
+                      <div>
+                        <div className="bm-profile-ref-member-name">{entry.reason.toUpperCase()}</div>
+                        <div className="bm-profile-ref-member-username">
+                          {formatDateTime(entry.date)}
+                          {entry.eventTitle ? ` / ${entry.eventTitle}` : ''}
+                        </div>
+                      </div>
+                      <div className="bm-profile-ref-member-role mono">
+                        {entry.points > 0 ? '+' : ''}
+                        {entry.points} PTS
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="bm-profile-ref-empty">Начислений пока нет.</p>
+              )}
+            </article>
+          </div>
         </section>
       </div>
     </div>

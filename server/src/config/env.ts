@@ -7,6 +7,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
   FRONTEND_ORIGIN: z.string().url().default('http://localhost:5173'),
+  FRONTEND_EXTRA_ORIGINS: z.string().optional(),
   DATABASE_URL: z.string().default('file:./dev.db'),
   JWT_SECRET: z.string().min(16).default('dev-super-secret-change-me-123456'),
   JWT_EXPIRES_IN: z.string().default('8h'),

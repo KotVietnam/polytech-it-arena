@@ -1,21 +1,30 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  apiAdminAddLiveScore,
   apiAdminCreateArchive,
   apiAdminCreateEvent,
   apiAdminDeleteArchive,
   apiAdminDeleteEvent,
+  apiAdminDrawLiveTeams,
   apiAdminListUsers,
   apiAdminUpdateUserRole,
   apiGetArchives,
+  apiGetEventLiveStats,
   apiGetEvents,
   type AdminUserItem,
+  type EventLiveStatsItem,
 } from '../api/client'
 import { UserControls } from '../components/UserControls'
 import { useAuth } from '../context/AuthContext'
 import { trackNames } from '../data/tracks'
 import type { ArchiveItem, EventItem, Level, TrackId, UserRole } from '../types'
-import { formatDateTime, getNearestEvent, sortEventsByDate } from '../utils/date'
+import {
+  formatDateTime,
+  getCurrentEvent,
+  getNearestEvent,
+  sortEventsByDate,
+} from '../utils/date'
 
 const trackOptions: TrackId[] = ['cybersecurity', 'networks', 'devops', 'sysadmin']
 const levelOptions: Level[] = ['Junior', 'Middle', 'Senior']
@@ -23,6 +32,7 @@ const levelOptions: Level[] = ['Junior', 'Middle', 'Senior']
 const homeLinkText = 'НА ГЛАВНУЮ >>'
 const calendarLinkText = 'КАЛЕНДАРЬ >>'
 const archiveLinkText = 'АРХИВ >>'
+const liveControlLinkText = 'LIVE CONTROL >>'
 
 const toIsoFromLocal = (value: string) => {
   const date = new Date(value)
@@ -78,6 +88,23 @@ const validateArchiveForm = (form: {
   return null
 }
 
+const validateLiveScoreForm = (form: {
+  reason: string
+  points: string
+}) => {
+  const parsedPoints = Number(form.points)
+  if (!Number.isInteger(parsedPoints) || parsedPoints === 0) {
+    return 'Укажите целое число очков (не 0).'
+  }
+  if (parsedPoints < -100 || parsedPoints > 100) {
+    return 'Диапазон очков: от -100 до 100.'
+  }
+  if (form.reason.trim().length < 2) {
+    return 'Причина действия должна быть не короче 2 символов.'
+  }
+  return null
+}
+
 export const AdminPage = () => {
   const { user, token, isGuest } = useAuth()
   const canManage = Boolean(token && user?.role === 'ADMIN')
@@ -86,6 +113,8 @@ export const AdminPage = () => {
   const [events, setEvents] = useState<EventItem[]>([])
   const [archives, setArchives] = useState<ArchiveItem[]>([])
   const [users, setUsers] = useState<AdminUserItem[]>([])
+  const [liveEventId, setLiveEventId] = useState('')
+  const [liveStats, setLiveStats] = useState<EventLiveStatsItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -106,6 +135,12 @@ export const AdminPage = () => {
     summary: '',
     materialsRaw: '',
     publishedAtLocal: getDefaultLocalDateTime(),
+  })
+
+  const [liveScoreForm, setLiveScoreForm] = useState({
+    team: 'BLUE' as 'BLUE' | 'RED',
+    points: '5',
+    reason: '',
   })
 
   const sortedEvents = useMemo(() => sortEventsByDate(events), [events])
@@ -141,6 +176,12 @@ export const AdminPage = () => {
           eventId: eventsResponse.items[0].id,
         }))
       }
+
+      if (eventsResponse.items.length) {
+        const sorted = sortEventsByDate(eventsResponse.items)
+        const currentEvent = getCurrentEvent(sorted)
+        setLiveEventId((previous) => previous || currentEvent?.id || sorted[0].id)
+      }
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : 'Ошибка загрузки'
       if (isViewMode) {
@@ -157,6 +198,52 @@ export const AdminPage = () => {
   useEffect(() => {
     void loadData()
   }, [loadData])
+
+  useEffect(() => {
+    if (!events.length) {
+      setLiveEventId('')
+      return
+    }
+
+    if (liveEventId && events.some((item) => item.id === liveEventId)) {
+      return
+    }
+
+    const sorted = sortEventsByDate(events)
+    const currentEvent = getCurrentEvent(sorted)
+    setLiveEventId(currentEvent?.id ?? sorted[0].id)
+  }, [events, liveEventId])
+
+  useEffect(() => {
+    if (!liveEventId) {
+      setLiveStats(null)
+      return
+    }
+
+    let cancelled = false
+    const loadLiveStats = async () => {
+      try {
+        const response = await apiGetEventLiveStats(liveEventId)
+        if (!cancelled) {
+          setLiveStats(response.item)
+        }
+      } catch {
+        if (!cancelled) {
+          setLiveStats(null)
+        }
+      }
+    }
+
+    void loadLiveStats()
+    const timer = setInterval(() => {
+      void loadLiveStats()
+    }, 15_000)
+
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [liveEventId])
 
   const onCreateEvent = async () => {
     if (!canManage || !token) return
@@ -282,6 +369,67 @@ export const AdminPage = () => {
     }
   }
 
+  const onDrawLiveTeams = async () => {
+    if (!canManage || !token) return
+
+    setError(null)
+    setNotice(null)
+
+    if (!liveEventId) {
+      setError('Выберите событие для судейства.')
+      return
+    }
+
+    try {
+      const response = await apiAdminDrawLiveTeams(token, liveEventId)
+      setLiveStats(response.item)
+      setNotice('Жеребьевка выполнена. Команды сформированы.')
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'Ошибка жеребьевки'
+      setError(message)
+    }
+  }
+
+  const onAddLiveScore = async () => {
+    if (!canManage || !token) return
+
+    setError(null)
+    setNotice(null)
+
+    if (!liveEventId) {
+      setError('Выберите событие для судейства.')
+      return
+    }
+
+    const validationError = validateLiveScoreForm({
+      points: liveScoreForm.points,
+      reason: liveScoreForm.reason,
+    })
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
+    const parsedPoints = Number(liveScoreForm.points)
+
+    try {
+      const response = await apiAdminAddLiveScore(token, liveEventId, {
+        team: liveScoreForm.team,
+        points: parsedPoints,
+        reason: liveScoreForm.reason.trim(),
+      })
+      setLiveStats(response.item)
+      setNotice('Судейский балл зафиксирован.')
+      setLiveScoreForm((previous) => ({
+        ...previous,
+        reason: '',
+      }))
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'Ошибка начисления'
+      setError(message)
+    }
+  }
+
   return (
     <div className="bm-admin-page">
       <div className="bm-admin-wrapper">
@@ -306,6 +454,9 @@ export const AdminPage = () => {
           </div>
 
           <div className="bm-admin-header-links">
+            <Link to="/admin/live" className="bm-track-header-link mono">
+              {liveControlLinkText}
+            </Link>
             <Link to="/home" className="bm-track-header-link mono">
               {homeLinkText}
             </Link>
@@ -553,6 +704,120 @@ export const AdminPage = () => {
                   СОЗДАТЬ
                 </button>
               </article>
+
+              <article className="bm-admin-panel">
+                <h3 className="bm-admin-panel-title mono">LIVE СУДЕЙСТВО</h3>
+
+                <div className="bm-admin-form-grid bm-admin-form-grid-two">
+                  <select
+                    className="bm-admin-input"
+                    value={liveEventId}
+                    onChange={(event) =>
+                      setLiveEventId(event.target.value)
+                    }
+                  >
+                    <option value="">Выберите событие</option>
+                    {sortedEvents.map((eventItem) => (
+                      <option key={eventItem.id} value={eventItem.id}>
+                        {eventItem.title} ({formatDateTime(eventItem.date)})
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    type="button"
+                    className="bm-admin-btn mono"
+                    onClick={() => {
+                      void onDrawLiveTeams()
+                    }}
+                  >
+                    ПРОВЕСТИ ЖЕРЕБЬЁВКУ
+                  </button>
+                </div>
+
+                {liveStats ? (
+                  <div className="bm-admin-point-rules">
+                    <p className="bm-admin-row-meta mono">
+                      УЧАСТНИКОВ: {liveStats.participantsCount}
+                    </p>
+                    <p className="bm-admin-row-meta mono">
+                      СТАТУС: {liveStats.hasDraw ? 'ЖЕРЕБЬЕВКА ВЫПОЛНЕНА' : 'ОЖИДАЕТ ЖЕРЕБЬЕВКИ'}
+                    </p>
+                    {liveStats.teams.map((team) => (
+                      <p key={team.id} className="bm-admin-row-meta mono">
+                        {team.name}: {team.score} PTS / {team.participantsCount} УЧ.
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="bm-admin-row-meta mono">Нет live-данных по событию.</p>
+                )}
+
+                <div className="bm-admin-form-grid bm-admin-form-grid-two">
+                  <select
+                    className="bm-admin-input"
+                    value={liveScoreForm.team}
+                    onChange={(event) =>
+                      setLiveScoreForm((previous) => ({
+                        ...previous,
+                        team: event.target.value as 'BLUE' | 'RED',
+                      }))
+                    }
+                  >
+                    <option value="BLUE">BLUE TEAM</option>
+                    <option value="RED">RED TEAM</option>
+                  </select>
+
+                  <input
+                    className="bm-admin-input"
+                    type="number"
+                    min={-100}
+                    max={100}
+                    step={1}
+                    placeholder="Баллы действия (+/-)"
+                    value={liveScoreForm.points}
+                    onChange={(event) =>
+                      setLiveScoreForm((previous) => ({
+                        ...previous,
+                        points: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+
+                <textarea
+                  className="bm-admin-input bm-admin-textarea bm-admin-textarea-sm"
+                  placeholder="Причина судейского действия"
+                  value={liveScoreForm.reason}
+                  onChange={(event) =>
+                    setLiveScoreForm((previous) => ({
+                      ...previous,
+                      reason: event.target.value,
+                    }))
+                  }
+                />
+
+                {liveStats?.recentActions.length ? (
+                  <div className="bm-admin-point-rules">
+                    {liveStats.recentActions.slice(0, 6).map((action) => (
+                      <p key={action.id} className="bm-admin-row-meta mono">
+                        {action.team.toUpperCase()} {action.points > 0 ? '+' : ''}
+                        {action.points} / {action.reason}
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
+
+                <button
+                  type="button"
+                  className="bm-admin-btn mono"
+                  onClick={() => {
+                    void onAddLiveScore()
+                  }}
+                >
+                  ЗАФИКСИРОВАТЬ ДЕЙСТВИЕ
+                </button>
+              </article>
             </div>
           )}
 
@@ -628,6 +893,7 @@ export const AdminPage = () => {
                       <p className="bm-admin-row-meta mono">
                         last login: {item.lastLoginAt ? formatDateTime(item.lastLoginAt) : 'never'}
                       </p>
+                      <p className="bm-admin-row-meta mono">total: {item.totalPoints} pts</p>
                     </div>
 
                     <select
